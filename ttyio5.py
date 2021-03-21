@@ -21,7 +21,7 @@ def raw_mode(file):
     finally:
         termios.tcsetattr(file.fileno(), termios.TCSADRAIN, old_attrs)
 
-async def asycgetch():
+async def getch(**kw):
     with raw_mode(sys.stdin):
         reader = asyncio.StreamReader()
         loop = asyncio.get_event_loop()
@@ -32,67 +32,13 @@ async def asycgetch():
             # '' means EOF, chr(4) means EOT (sent by CTRL+D on UNIX terminals)
             if not ch or ord(ch) <= 4:
                 break
-            print(f'Got: {ch!r}')
+            # print(f'Got: {ch!r}')
+        return ch
 
 # asyncio.run(asyncgetch())
 
-# @see http://www.python.org/doc/faq/library.html#how-do-i-get-a-single-keypress-at-a-time
-# @see http://craftsman-hambs.blogspot.com/2009/11/getch-in-python-read-character-without.html
-def getch(noneok:bool=False, timeout=0.250, echoch=False) -> str:
-  fd = sys.stdin.fileno()
-
-  oldterm = termios.tcgetattr(fd)
-
-  newattr = termios.tcgetattr(fd)
-
-  newattr[3] = newattr[3] & ~termios.ICANON  
-
-  if echoch is False:
-    newattr[3] = newattr[3] & ~termios.ECHO
-
-  termios.tcsetattr(fd, termios.TCSANOW, newattr)
-
-  oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
-  # fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
-  try:
-      while 1:
-        try:
-          r, w, x = select.select([fd], [], [], timeout)
-        except socket.error as e:
-          echo("%r: %r" % (e.code, e.msg), level="error")
-          if e.args[0] == 4:
-            echo("interupted system call (tab switch?)")
-            continue
-        if len(r) == 0 and noneok is True:
-          return None
-
-        return sys.stdin.read(1)
-  finally:
-        termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
-        fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
-      # echo("{/all}", end="") # print ("\033[0m", end="")
-
-  return ch
-
-# @see https://gist.github.com/sirpengi/5045885 2013-feb-27 in oftcphp sirpengi
-# @since 20140529
-# @since 20200719
-def collapselist(lst):
-    def chunk(lst):
-        ret = [lst[0],]
-        for i in lst[1:]:
-            if ord(i) == ord(ret[-1]) + 1:
-                pass
-            else:
-                yield ret
-                ret = []
-            ret.append(i)
-        yield ret
-    chunked = chunk(lst)
-    ranges = ((min(l), max(l)) for l in chunked)
-    return ", ".join("{0}-{1}".format(*l) if l[0] != l[1] else l[0] for l in ranges)
-
 # @since 20201105
+@asyncio.coroutine
 def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), noneok:bool=False, echoch=False) -> str:
   if "debug" in args and args.debug is True:
     echo("ttyio4.inputchar.100: options=%s" % (options), level="debug")
@@ -103,7 +49,8 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
 
   while 1:
     try:
-      ch = getch(noneok=noneok, echoch=echoch).upper()
+      ch = getch(noneok=noneok, echoch=echoch)
+      ch = ch.upper()
     except KeyboardInterrupt:
       raise
 
@@ -120,38 +67,13 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
     elif ch is None:
       return None
 
-def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
-  if debug is True:
-    echo("ttyio3.accept.100: options=%s" % (options), level="debug")
-        
-  default = default.upper() if default is not None else ""
-  options = options.upper()
-  echo(prompt, end="", flush=True)
-
-  while 1:
-    ch = getch().upper()
-
-    if ch == "\n":
-      return default
-      if default is not None:
-        return default
-      else:
-        return ch
-    elif ch in options:
-      return ch
-
 # https://www.c64-wiki.com/wiki/Color
 # https://en.wikipedia.org/wiki/ANSI_escape_code
 mcicommands = (
 { "command": "{clear}",      "ansi": "2J" },
 { "command": "{home}",       "ansi": "0;0H" },
-# { "command": "{clreol}",     "ansi": "K" },
-# { "command": "{/all}",       "ansi": "0;39;49m" },
 { "command": "{/fgcolor}",   "ansi": "39m" },
 { "command": "{/bgcolor}",   "ansi": "49m" },
-
-#{ "command": "{savecursor}", "ansi": "s" },
-#{ "command": "{restorecursor}", "ansi": "u" },
 
 { "command": "{bold}",       "ansi": "1m" },
 { "command": "{/bold}",      "ansi": "22m" },
@@ -484,48 +406,6 @@ def xtname(name):
   echo("\033]0;%s\007" % (name))
   return
 
-def handlemenu(args, title, items, oldrecord, currecord, prompt="option", defaulthotkey=""):
-    hotkeys = {}
-
-    hotkeystr = ""
-
-    for item in items:
-        label = item["label"].lower()
-        hotkey = item["hotkey"].lower() if item.has_key("hotkey") else None
-#        ttyio.echo("hotkey=%s" % (hotkey), level="debug")
-        if hotkey is not None and hotkey in label:
-            label = label.replace(hotkey.lower(), "[{cyan}%s{/cyan}]" % (hotkey.upper()), 1)
-        else:
-            label = "[{cyan}%s{/cyan}] %s" % (hotkey, label)
-        if item.has_key("key"):
-            key = item["key"]
-            if oldrecord[key] != currecord[key]:
-                buf = "%s: %s (was %s)" % (label, currecord[key], oldrecord[key])
-            else:
-                buf = "%s: %s" % (label, currecord[key])
-        else:
-            buf = label
-        
-        hotkeys[hotkey] = item # ["longlabel"] if item.has_key("longlabel") else None
-        if hotkey is not None:
-            hotkeystr += hotkey
-        echo(buf,datestamp=False)
-    
-    if currecord != oldrecord:
-      echo("{yellow}** NEEDS SAVE **{/yellow}", datestamp=False)
-    
-    echo()
-  
-    ch = accept(prompt, hotkeystr, defaulthotkey)
-    ch = ch.lower()
-    longlabel = hotkeys[ch]["longlabel"] if hotkeys[ch].has_key("longlabel") else None
-    if longlabel is not None:
-        echo("{cyan}%s{/cyan} -- %s" % (ch.upper(), longlabel), datestamp=False)
-    else:
-        echo("{cyan}%s{/cyan}" % (ch.upper()), datestamp=False)
-    return hotkeys[ch]
-
-  
 # @see https://stackoverflow.com/questions/9043551/regex-that-matches-integers-only
 def inputinteger(prompt, oldvalue=None, **kw) -> int:
   oldvalue = int(oldvalue) if oldvalue is not None else ""
@@ -547,7 +427,7 @@ def inputinteger(prompt, oldvalue=None, **kw) -> int:
 # @since 20200626
 # @since 20200729
 # @since 20200901
-def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
+async def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
   import readline
   def preinputhook():
     readline.insert_text(str(oldvalue))
@@ -750,8 +630,8 @@ class genericInputCompleter(object):
     return self.matches[state]
 
 # @since 20210203
-def inputboolean(prompt:str, default:str=None, options="YNTF") -> bool:
-  ch = inputchar(prompt, options, default)
+async def inputboolean(prompt:str, default:str=None, options="YNTF") -> bool:
+  ch = await inputchar(prompt, options, default)
   if ch == "Y":
           echo("Yes")
           return True
