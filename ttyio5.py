@@ -80,16 +80,6 @@ emoji = {
   "spiral":     "\U0001f4ab",
 }
 
-#emich = {
-#  "green":      "0;105;63",
-#  "white":      "255;255;255",
-#  "black":      "0;0;0",
-#  "gray":       "154;162;151",
-#  "mediumblue": "28;55;103",
-#  "darkblue":   "16;44;82",
-#  "lightblue":  "224;237;247"
-#}
-
 # @see http://www.python.org/doc/faq/library.html#how-do-i-get-a-single-keypress-at-a-time
 # @see http://craftsman-hambs.blogspot.com/2009/11/getch-in-python-read-character-without.html
 def getch(noneok:bool=False, timeout=0.000125, echoch=False) -> str:
