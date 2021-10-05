@@ -80,15 +80,15 @@ emoji = {
   "spiral":     "\U0001f4ab",
 }
 
-emich = {
-  "green":      "0;105;63",
-  "white":      "255;255;255",
-  "black":      "0;0;0",
-  "gray":       "154;162;151",
-  "mediumblue": "28;55;103",
-  "darkblue":   "16;44;82",
-  "lightblue":  "224;237;247"
-}
+#emich = {
+#  "green":      "0;105;63",
+#  "white":      "255;255;255",
+#  "black":      "0;0;0",
+#  "gray":       "154;162;151",
+#  "mediumblue": "28;55;103",
+#  "darkblue":   "16;44;82",
+#  "lightblue":  "224;237;247"
+#}
 
 # @see http://www.python.org/doc/faq/library.html#how-do-i-get-a-single-keypress-at-a-time
 # @see http://craftsman-hambs.blogspot.com/2009/11/getch-in-python-read-character-without.html
@@ -158,8 +158,8 @@ def getch(noneok:bool=False, timeout=0.000125, echoch=False) -> str:
 
 # @since 20201105
 def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), noneok:bool=False, echoch=False) -> str:
-  if "debug" in args and args.debug is True:
-    echo("ttyio4.inputchar.100: options=%s" % (options), level="debug")
+#  if "debug" in args and args.debug is True:
+#    echo("ttyio4.inputchar.100: options=%s" % (options), level="debug")
 
   default = default.upper() if default is not None else ""
   options = options.upper()
@@ -195,8 +195,8 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
       continue
 
 def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
-  if debug is True:
-    echo("ttyio4.accept.100: options=%s" % (options), level="debug")
+#  if debug is True:
+#    echo("ttyio4.accept.100: options=%s" % (options), level="debug")
         
   default = default.upper() if default is not None else ""
   options = options.upper()
@@ -214,24 +214,45 @@ def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
     elif ch in options:
       return ch
 
+def darken(prefix, rgb, percentage):
+  if len(rgb) == 3:
+    (r, g, b) = rgb
+    a = 1
+  elif len(rgb) == 4:
+    (r, g, b, a) = rgb
+  r *= 1-percentage
+  g *= 1-percentage
+  b *= 1-percentage
+  ansi = "%s;2;%d;%d;%d;%dm" % (prefix, r, g, b, a)
+  return ansi
+
+def rgb(prefix, rgb):
+  if len(rgb) == 3:
+    (r, g, b) = rgb
+    a = 1
+  elif len(rgb) == 4:
+    (r, g, b, a) = rgb
+  ansi = "%s;2;%s;%s;%s;%sm" % (prefix, r, g, b, a)
+  return ansi
 # c64 color palette
 colors = (
-{ "command": "{white}",      "ansi": "38;2;255;255;255m", "rgb": (255,255,255) }, # 37m
-{ "command": "{red}",        "ansi": "38;2;136;0;0m",     "rgb": (136,0,0) }, # 31m
-{ "command": "{cyan}",       "ansi": "38;2;170;255;238m", "rgb": (170,255,238) }, # 36m
-{ "command": "{purple}",     "ansi": "38;2;204;68;204m",  "rgb": (204, 68, 204) }, # 35m
-{ "command": "{green}",      "ansi": "38;2;0;204;85m",    "rgb": (0,204,85) }, # 32m
-{ "command": "{blue}",       "ansi": "38;2;0;0;170m",     "rgb": (0,0,170) }, # 34m
-{ "command": "{yellow}",     "ansi": "38;2;238;238;119m", "rgb": (238,238,119) }, # 33m
-{ "command": "{orange}",     "ansi": "38;2;221;136;85m",  "rgb": (221,136,85) },
-{ "command": "{brown}",      "ansi": "38;2;102;68;0m",    "rgb": (102,68,0) },
-{ "command": "{lightred}",   "ansi": "38;2;255;119;119m", "rgb": (255, 119, 119) },
-{ "command": "{darkgray}",   "ansi": "38;2;51;51;51m",    "rgb": (51, 51, 51) },
-{ "command": "{gray}",       "ansi": "38;2;119;119;119m", "rgb": (119, 119, 119) },
-{ "command": "{lightgreen}", "ansi": "38;2;170;255;102m", "rgb": (170, 255, 102) },
-{ "command": "{lightblue}",  "ansi": "38;2;0;136;255m",   "rgb": (0, 136, 255) },
-{ "command": "{lightgray}",  "ansi": "38;2;187;187;187m", "rgb": (187, 187, 187) },
-{ "command": "{black}",      "ansi": "38;2;0;0;0m",       "rgb": (0,0,0) }, # 30m
+{ "command": "{white}",      "ansi": rgb(38, (255, 255, 255))}, # )"38;2;255;255;255m", "rgb": (255,255,255) }, # 37m
+{ "command": "{red}",        "ansi": rgb(38, (136, 0, 0))}, # "38;2;136;0;0m"},
+{ "command": "{cyan}",       "ansi": "38;2;170;255;238m"},
+{ "command": "{purple}",     "ansi": "38;2;204;68;204m"},
+{ "command": "{green}",      "ansi": "38;2;0;204;85m"},
+{ "command": "{blue}",       "ansi": "38;2;0;0;170m"},
+{ "command": "{yellow}",     "ansi": "38;2;238;238;119m"},
+{ "command": "{orange}",     "ansi": "38;2;221;136;85m"},
+{ "command": "{brown}",      "ansi": "38;2;102;68;0m"},
+{ "command": "{lightred}",   "ansi": "38;2;255;119;119m"},
+{ "command": "{darkgray}",   "ansi": "38;2;51;51;51m"},
+{ "command": "{gray}",       "ansi": "38;2;119;119;119m"},
+{ "command": "{lightgreen}", "ansi": "38;2;170;255;102m"},
+{ "command": "{lightblue}",  "ansi": "38;2;0;136;255m"},
+{ "command": "{lightgray}",  "ansi": "38;2;187;187;187m"},
+{ "command": "{black}",      "ansi": rgb(38, (0,0,0))}, # "38;2;0;0;0m"},
+{ "command": "{darkgreen}",  "ansi": darken(38, (0, 204, 85), 0.20)},#  "rgb": (0,183,76) } # darken("green", 0.10)
 )
 
 bgcolors = (
@@ -250,7 +271,9 @@ bgcolors = (
 { "command": "{bglightgreen}", "ansi": "48;2;170;255;102m", "rgb": (170, 255, 102) },
 { "command": "{bglightblue}",  "ansi": "48;2;0;136;255m",   "rgb": (0, 136, 255) },
 { "command": "{bglightgray}",  "ansi": "48;2;187;187;187m", "rgb": (187, 187, 187) },
-{ "command": "{bgblack}",      "ansi": "48;2;0;0;0m",       "rgb": (0,0,0) } # 30m
+{ "command": "{bgblack}",      "ansi": rgb(48, (0,0,0)) }, # "48;2;0;0;0m",       "rgb": (0,0,0) }, # 30m
+{ "command": "{bgdarkgreen}",  "ansi": darken(48, (0, 204, 85), 0.20) }, # "48;2;0;183;76m",  "rgb": (0,183,76) } # darken("green", 0.10)
+
 )
 
 # https://www.c64-wiki.com/wiki/Color
@@ -331,10 +354,12 @@ variables = {}
 variables["theanswer"] = 42
 
 def setvariable(name:str, value):
+#  print("setvariable.100: name=%r value=%r" % (name, value))
   variables[name] = value
   return
 
 def getvariable(name:str):
+#  print("getvariable.100: variables=%r" % (variables))
   if name in variables:
     return variables[name]
   return "NOTFOUND:%r" % (name)
@@ -431,8 +456,10 @@ def __tokenizemci(buf:str, args:object=Namespace()):
           value = (command, repeat)
           # print("value.command=%r, value.repeat=%r" % (command, repeat))
         elif kind == "VAR":
-          # echo("var! mo.groups=%r" % (repr(mo.groups())), level="debug", interpret=False)
-          value = getvariable(mo.group(35))
+#          print("var! mo.groups=%r" % (repr(mo.groups())))
+          var = mo.group(35)
+          value = getvariable(var)
+#          print("var=%r value=%r" % (var, value))
           for t in __tokenizemci(str(value)):
             # print("{var} yielding token %r" % (t,))
             yield t
@@ -565,6 +592,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
       elif token.type == "CURSORDOWN":
         repeat = int(token.value)
         result += "\033[%dB" % (repeat)
+#        print("result=%r" % (result))
       elif token.type == "CURSORRIGHT":
         repeat = int(token.value)
         result += "\033[%dC" % (repeat)
@@ -605,6 +633,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
       elif token.type == "OPENBRACE" or token.type == "CLOSEBRACE":
         result += token.value
         pos += 1
+#  print("result=%s" % (result))
   return result
 
 # copied from bbsengine.py
@@ -748,10 +777,10 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
   if oldvalue is not None:
     readline.set_pre_input_hook(preinputhook)
 
-  try:
-    inputfunc = raw_input
-  except NameError:
-    inputfunc = input
+#  try:
+#    inputfunc = raw_input
+#  except NameError:
+  inputfunc = input
   
   args = kw["args"] if "args" in kw else Namespace()
 
@@ -942,7 +971,7 @@ class genericInputCompleter(object):
     return matches
 
   @classmethod
-  def completer(self:object, text:str, state):
+  def complete(self:object, text:str, state):
     if state == 0:
       self.matches = self.getmatches(text)
 
