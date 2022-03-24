@@ -1,9 +1,17 @@
-import os, sys
-import tty, termios, fcntl
+#
+# Copyright (C) 2021 zoidtechnologies.com. All Rights Reserved.
+#
+
+import re
+import os
+import sys
+import tty
 import time
+import termios
+import fcntl
 import select
 import socket
-import re
+import threading
 
 from datetime import datetime
 from time import strftime
@@ -62,23 +70,54 @@ unicode = {
   "SVSHCROSS":   "\u253C",
   "DVSHCROSS":   "\u256B",
   "DVDHCROSS":   "\u256C",
+  "DIEONE":      "\u2680",
+  "DIETWO":      "\u2681",
+  "DIETHREE":    "\u2682",
+  "DIEFOUR":     "\u2683",
+  "DIEFIVE":     "\u2684",
+  "DIESIX":      "\u2685",
 }
 
 # https://stackoverflow.com/questions/3220031/how-to-filter-or-replace-unicode-characters-that-would-take-more-than-3-bytes
 # https://medium.com/analytics-vidhya/how-to-print-emojis-using-python-2e4f93443f7e
 emoji = {
-  "grin":       "\U0001F600",
-  "smile":      "\U0001f642",
-  "rofl":       "\U0001f923",
-  "wink":       "\U0001f609",
-  "thinking":   "\U0001f914",
-  "sunglasses": "\U0001f60e",
-  "100":        "\U0001f4af",
-  "thumbup":    "\U0001f44d",
-  "thumbdown":  "\U0001f44e",
-  "vulcan":     "\U0001f596",
-  "spiral":     "\U0001f4ab",
+  "grin":                   "\U0001F600",
+  "smile":                  "\U0001f642",
+  "rofl":                   "\U0001f923",
+  "wink":                   "\U0001f609",
+  "thinking":               "\U0001f914",
+  "sunglasses":             "\U0001f60e",
+  "100":                    "\U0001f4af",
+  "thumbup":                "\U0001f44d",
+  "thumbdown":              "\U0001f44e",
+  "vulcan":                 "\U0001f596",
+  "spiral":                 "\U0001f4ab",
+  "fire":                   "\U0001f525",
+  "bank":                   "\U0001f3e6",
+  "house":                  "\U0001f3e0",
+  "military-helmet":        "\U0001fa96",
+  "door":                   "\U0001f6aa",
+  "receipt":                "\U0001f9fe",
+  "newspaper":              "\U0001f4f0",
+  "prince":                 "\U0001f934",
+  "princess":               "\U0001f478",
+  "thread":                 "\U0001f9f5",
+  "ice":                    "\U0001f9ca",
+  "moneybag":               "\U0001f4b0",
+  "person":                 "\U0001f9d1",
+  "sun":                    "\U00002600", # @see https://emojipedia.org/sun/
+  "thunder-cloud-and-rain": "\U000026C8", # @see https://emojipedia.org/cloud-with-lightning-and-rain/
+  "crop":                   "\U0001F33E", # @see https://emojipedia.org/sheaf-of-rice/
+  "horse":                  "\U0001F40E", # @see https://emojipedia.org/horse/
+  "cactus":                 "\U0001F335", # @see https://emojipedia.org/cactus/
+  "ship":                   "\U0001F6A2", # @see https://emojipedia.org/ship/
+  "wood":                   "\U0001FAB5", # @see https://emojipedia.org/wood/
+  "link":                   "\U0001F517", # @see https://emojipedia.org/link/
+  "anchor":                 "\U00002693", # @see https://emojipedia.org/anchor/
+  "ballot-box":             "\U0001F5F3", # @see https://emojipedia.org/ballot-box-with-ballot/
 }
+
+terinallock = None
 
 # @see http://www.python.org/doc/faq/library.html#how-do-i-get-a-single-keypress-at-a-time
 # @see http://craftsman-hambs.blogspot.com/2009/11/getch-in-python-read-character-without.html
@@ -156,12 +195,9 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
   echo(prompt, end="", flush=True)
 
   while 1:
-    try:
-      ch = getch(noneok=noneok, echoch=echoch)
-      if ch is not None:
-        ch = ch.upper()
-    except KeyboardInterrupt:
-      raise
+    ch = getch(noneok=noneok, echoch=echoch)
+    if ch is not None:
+      ch = ch.upper()
 
     # echo("inputchar.100: ch=%r" % (ch))
 
@@ -213,8 +249,7 @@ def darken(prefix, rgb, percentage):
   r *= 1-percentage
   g *= 1-percentage
   b *= 1-percentage
-  ansi = "%s;2;%d;%d;%d;%dm" % (prefix, r, g, b, a)
-  return ansi
+  return "%s;2;%d;%d;%d;%dm" % (prefix, r, g, b, a)
 
 def rgb(prefix, rgb):
   if len(rgb) == 3:
@@ -237,7 +272,7 @@ colors = (
 { "command": "{brown}",      "ansi": "38;2;102;68;0m"},
 { "command": "{lightred}",   "ansi": "38;2;255;119;119m"},
 { "command": "{darkgray}",   "ansi": "38;2;51;51;51m"},
-{ "command": "{gray}",       "ansi": "38;2;119;119;119m"},
+{ "command": "{gray}",       "ansi": rgb(38, (119,119,119))}, # "38;2;119;119;119m"},
 { "command": "{lightgreen}", "ansi": "38;2;170;255;102m"},
 { "command": "{lightblue}",  "ansi": "38;2;0;136;255m"},
 { "command": "{lightgray}",  "ansi": "38;2;187;187;187m"},
@@ -337,11 +372,17 @@ acs = {
   "UARROW":  "-",
   "BOARD":   "h",
   "LANTERN": "i",
-  "BLOCK":   "0",
+#  "BLOCK":   "0",
 }
 
 variables = {}
 variables["theanswer"] = 42
+variables["engine.title.color"] = "{bggray}{white}"
+variables["engine.title.hrcolor"] = "{darkgreen}"
+variables["engine.currentoptioncolor"] = "{bggray}{white}"
+variables["engine.promptcolor"] = "{white}"
+variables["engine.areacolor"] = "{bggray}{white}"
+# add 'engine.menu.resultfailedcolor'?
 
 def setvariable(name:str, value):
 #  print("setvariable.100: name=%r value=%r" % (name, value))
@@ -364,6 +405,9 @@ class Token(NamedTuple):
 
 # @see https://docs.python.org/3/library/re.html#writing-a-tokenizer
 def __tokenizemci(buf:str, args:object=Namespace()):
+    if type(buf) is not str:
+      return buf
+
     buf = buf.replace("\n", " ")
     token_specification = [
         ("ACS",        r'\{ACS:([a-z\d]+)(:([\d]{,3}))?\}'),
@@ -382,13 +426,12 @@ def __tokenizemci(buf:str, args:object=Namespace()):
         ("BELL",       r'\{BELL(:(\d{,2}))?\}'),
         ("VAR",	       r'\{VAR:([\w.-]+)\}'),
         ("CURSORUP",   r'\{CURSORUP(:(\d{,3}))?\}'),
-        ("CURSORRIGHT",r'\{CURSORRIGHT(:(\d{,3}))?\}'),
+        ("CURSORRIGHT",r'\{CURSORRIGHT(:(\d{,3}))?\}'), # {cursorright:4}
         ("CURSORLEFT", r'\{CURSORLEFT(:(\d{,3}))?\}'),
         ("CURSORDOWN", r'\{CURSORDOWN(:(\d{,3}))?\}'),
         ("WAIT",       r'\{WAIT:(\d)\}'),
         ("UNICODE",    r'\{(U|UNICODE):([a-z]+)(:([0-9]{,3}))?\}'),
-        ("EMOJI",      r':([a-zA-Z0-9 -]+):'),
-        ("EMICH",      r'\{EMICH:(\w+)\}'),
+        ("EMOJI",      r':([a-zA-Z0-9_-]+):'),
         ("COMMAND",    r'\{[^\}]+\}'),     # {red}, {brightyellow}, etc
         ("WORD",       r'[^ \t\n\{\}]+'),
         ('MISMATCH',   r'.')            # Any other pattern
@@ -407,10 +450,10 @@ def __tokenizemci(buf:str, args:object=Namespace()):
           if value == "\n":
             value = " "
           # print("whitespace. value=%r" % (value))
-        elif kind == "COMMAND":
-            pass
-        elif kind == "WORD":
-            pass
+#        elif kind == "COMMAND":
+#            pass
+#        elif kind == "WORD":
+#            pass
         elif kind == "F6":
           value = mo.group(11) or 1
         elif kind == "MISMATCH":
@@ -494,6 +537,16 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
     for token in __tokenizemci(buf):
       if token.type == "WORD" or token.type == "WHITESPACE":
         result += token.value
+      elif token.type == "EMOJI":
+        result += " "
+        v = emoji[token.value] if token.value in emoji else ""
+#        echo("token.value=%r v=%r" % (token.value, v))
+#        m = re.match(r'[\U00010000-\U0001FFFF]', v, re.DEBUG)
+#        echo("m=%r" % (m))
+#        if m is not None:
+#          echo("padding")
+#          result += "*"
+#    print("result=%r (%d)" % (result, len(result)))
     return result
 
   if width is None:
@@ -501,8 +554,6 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
 
   pos = 0
   for token in __tokenizemci(buf):
-      # print(token)
-      # print("pos=%d" % (pos))
       if token.type == "F6":
           v = token.value if token.value is not None else 1
           result += "\n"*int(v)
@@ -511,14 +562,10 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
           result += token.value
           pos += len(token.value)
       elif token.type == "BELL":
-        #if args and args.debug is True:
-        #print("BELL: value=%s" % (token.value))
         result += "\007"*int(token.value)
       elif token.type == "COMMAND":
         if strip is False:
-          # result += "{command: %r}" % (token.value)
           value = token.value.lower()
-          # print("value=%r" % (value))
           res = False
           for t in [mcicommands, colors, bgcolors]:
             res = handlecommand(t, value)
@@ -528,25 +575,6 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
           if res is False:
             print("syntax error: %r" % (value))
             continue
-#          res = handlecommand(colors, value)
-#          for item in colors:
-#            command = item["command"]
-#            if value == command:
-#              result += "\033[%s" % (item["ansi"])
-#              break
-
-#          for item in mcicommands:
-#            # print("item=%r" % (item))
-#            command = item["command"]
-#            ansi = item["ansi"] if "ansi" in item else None
-#            alias = item["alias"] if "alias" in item else None
-#            if value == command:
-#              if ansi is not None:
-#                # print("added ansi seq")
-#                result += "\033[%s" % (ansi)
-#              elif alias is not None:
-#                result += alias
-#              break
       elif token.type == "DECSC":
         result += "\033[s"
       elif token.type == "DECRC":
@@ -576,7 +604,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
           char = acs[command.upper()]
           result += "\033(0%s\033(B" % (char*int(repeat))
           pos += len(char*int(repeat))
-      elif token.type == "CURSORUP":
+      elif token.type == "CURSORUP": # {cursorup:10}
         repeat = int(token.value)
         result += "\033[%dA" % (repeat)
       elif token.type == "CURSORDOWN":
@@ -600,15 +628,9 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
         if name in unicode:
           result += unicode[name]*repeat
       elif token.type == "EMOJI":
-        name = token.value
+        name = token.value # :smile:
         if name in emoji:
           result += emoji[name]
-      elif token.type == "EMICH":
-        name = token.value
-        print("type=EMICH, name=%r resolve=%r" % (name, emich[name]))
-        if name in emich:
-          print("name in emich")
-          result += "\033[38;2;%sm" % (emich[name])
       elif token.type == "WORD":
         if wordwrap is True:
           if pos+len(token.value) >= width-1:
@@ -627,7 +649,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
   return result
 
 # copied from bbsengine.py
-def echo(buf:str="", interpret=True, strip:bool=False, level:str=None, datestamp=False, end:str="\n", width:int=None, wordwrap=True, flush=False, args:object=Namespace(), **kw):
+def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, datestamp=False, end:str="\n", width:int=None, wordwrap=True, flush=False, args:object=Namespace(), **kw):
   if width is None:
     width = getterminalwidth()
 
@@ -690,43 +712,47 @@ def getcursorposition():
 
   return (row, column)
 
+# @since 20210411
+def getterminalsize():
+  import shutil
+  return shutil.get_terminal_size()
+
 # http://www.brandonrubin.me/2014/03/18/python-snippet-get-terminal-width/
 # https://www.programcreek.com/python/example/1922/termios.TIOCGWINSZ
 def getterminalwidth():
+  return getterminalsize().columns
   #try:
   #  res = os.get_terminal_size()
   #except:
   #  return 80
   #else:
   #  return res.columns
-  import subprocess
-
-  command = ['tput', 'cols']
-
+#  import subprocess
+#
+#  command = ['tput', 'cols']
+#
 #  if sys.stdout.isatty() is False:
 #    return False
 
-  try:
-    width = int(subprocess.check_output(command))
-  except OSError as e:
-    print("Invalid Command '{0}': exit status ({1})".format(command[0], e.errno))
-    return False
-  except subprocess.CalledProcessError as e:
-    print("Command '{0}' returned non-zero exit status: ({1})".format(command, e.returncode))
-    return False
-  else:
-    return width
+#  try:
+#    width = int(subprocess.check_output(command))
+#  except OSError as e:
+#    print("Invalid Command '{0}': exit status ({1})".format(command[0], e.errno))
+#    return False
+#  except subprocess.CalledProcessError as e:
+#    print("Command '{0}' returned non-zero exit status: ({1})".format(command, e.returncode))
+#    return False
+#  else:
+#    return width
 
 def getterminalheight():
-  if sys.stdout.isatty() is False:
-    return False
+  return getterminalsize().lines
+#  if sys.stdout.isatty() is False:
+#    return False
+#
+#  res = os.get_terminal_size()
+#  return res.lines
 
-  res = os.get_terminal_size()
-  return res.lines
-
-# @since 20210411
-def getterminalsize():
-  return os.get_terminal_size()
 
 # @see https://tldp.org/HOWTO/Xterm-Title-3.html
 def xtname(name):
@@ -767,9 +793,6 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
   if oldvalue is not None:
     readline.set_pre_input_hook(preinputhook)
 
-#  try:
-#    inputfunc = raw_input
-#  except NameError:
   inputfunc = input
   
   args = kw["args"] if "args" in kw else Namespace()
@@ -786,10 +809,12 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
   oldcompleterdelims = readline.get_completer_delims()
 
   completerdelims = kw["completerdelims"] if "completerdelims" in kw else readline.get_completer_delims()
+  
+  verify = kw["verify"] if "verify" in kw else None
 
-  if args is not None and "debug" in args and args.debug is True:
-    echo("inputstring.100: completerdelims=%r" % (completerdelims), interpret=False)
-    echo("completer is %r" % (completer))
+#  if args is not None and "debug" in args and args.debug is True:
+#    echo("inputstring.100: completerdelims=%r" % (completerdelims), interpret=False)
+#    echo("completer is %r" % (completer))
 
   readline.parse_and_bind("tab: complete")
   if completer is not None and hasattr(completer, "complete") and callable(completer.complete) is True:
@@ -804,12 +829,7 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
       echo("completer is none or is not callable.")
 
   while True:
-    #try:
     buf = inputfunc(interpretmci(prompt))
-    #except (KeyboardInterrupt, EOFError) as e:
-    #  raise
-    #finally:
-    #  echo("{/all}") # print ("\x1b[0m", end="")
 
     if oldvalue is not None:
       readline.set_pre_input_hook(None)
@@ -829,52 +849,35 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
         continue
 
     if multiple is True:
-      completions = buf.split(completerdelims) # ",")
+#      echo("completerdelims=%r" % (completerdelims), interpret=False)
+      foo = re.split("|".join(", "), buf)
+      foo = [f.strip() for f in foo] # strip whitespace from items
+      foo = [f for f in foo if f] # remove empty items
     else:
-      completions = [buf]
-
-    completions = [c.strip() for c in completions]
-
-    if "verify" in kw and callable(kw["verify"]):
-      verify = kw["verify"]
-    else:
-      result = buf
-      break
-
-    bang = []
-    if completerdelims != "":
-      for c in completions:
-        bang += c.split(completerdelims)
-      completions = bang
-    else:
-      completions = [buf]
-    validcompletions = []
-
-    if args is not None and "debug" in args and args.debug is True:
-      echo("inputstring.200: verify is callable", level="debug")
-
-    invalid = 0
-    for c in completions:
-      if verify(args, c) is True:
-        validcompletions.append(c)
-      else:
-        echo("%r is not valid" % (c))
-        invalid += 1
+      foo = str(buf)
+    
+    if callable(verify) is True and verify(args, foo) is False:
         continue
-    if invalid == 0:
-      if args is not None and "debug" in args and args.debug is True:
-        echo("inputstring.220: no invalid entries, exiting loop")
-      result = validcompletions
-      break
+
+    break
 
   readline.set_completer(oldcompleter)
   readline.set_completer_delims(oldcompleterdelims)
 
-  if len(result) == 1 and type(result) == type([]) and returnseq==False:
-    return result[0]
-  return result
+  return foo
+
+
+#    if callable(verify):
+#      foo = [verify(args, f) for f in foo]
+
+#    return foo
+#    if multiple is True:
+#      return foo
+#    return completerdelims.join(foo)
 
 # @see https://stackoverflow.com/a/53981846
+# @deprecated
+# moved to bbsengine5
 def oxfordcomma(seq: List[Any], sepcolor:str="", itemcolor:str="") -> str:
     """Return a grammatically correct human readable string (with an Oxford comma)."""
     seq = [str(s) for s in seq]
@@ -924,48 +927,6 @@ def detectansi():
   else:
     return None
 
-# @since 20201013
-class genericInputCompleter(object):
-  def __init__(self:object, args:object, tablename:str, primarykey:str):
-    self.matches = []
-    self.dbh = bbsengine.databaseconnect(args)
-    self.debug = args.debug if "debug" in args else False
-    self.tablename = tablename
-    self.primarykey = primarykey
-
-    if self.debug is True:
-      ttyio.echo("init genericInputCompleter object", level="debug")
-
-  @classmethod
-  def getmatches(self, text):
-    if self.debug is True:
-      ttyio.echo("genericInputCompleter.110: called getmatches()", level="debug")
-    sql = "select %s from %s where %s ilike %%s" % (self.primarykey, self.tablename, self.primarykey)
-    dat = (text+"%",)
-    cur = self.dbh.cursor()
-    if self.debug is True:
-      ttyio.echo("getmatches.140: mogrify=%r" % (cur.mogrify(sql, dat)), level="debug")
-    cur.execute(sql, dat)
-    res = cur.fetchall()
-    if self.debug is True:
-      ttyio.echo("getmatches.130: res=%r" % (res), level="debug")
-    matches = []
-    for rec in res:
-      matches.append(rec[self.primarykey])
-
-    cur.close()
-
-    if self.debug is True:
-      ttyio.echo("getmatches.120: matches=%r" % (matches), level="debug")
-
-    return matches
-
-  @classmethod
-  def complete(self:object, text:str, state):
-    if state == 0:
-      self.matches = self.getmatches(text)
-
-    return self.matches[state]
 
 # @since 20210203
 def inputboolean(prompt:str, default:str=None, options="YN") -> bool:
@@ -985,6 +946,26 @@ def inputboolean(prompt:str, default:str=None, options="YN") -> bool:
           echo("False")
           return False
   return
+
+def center(buf, width:int=None, fillchar:str=" "):
+  if width is None:
+    width = getterminalwidth()-2
+
+  l = len(interpretmci(buf, strip=True))
+  half = (width-l)//2 # ttyio.getterminalwidth()-2-l)//2
+  if (width - l) % 2 == 0:
+    space = ""
+  else:
+    space = fillchar
+  b = fillchar*half+buf+space+fillchar*half
+  return b
+
+def ljust(buf:str, width:int=None, fillchar:str=" "):
+  if width is None:
+    width = getterminalwidth()-1
+  buflen = len(interpretmci(buf, strip=True))
+  buf += fillchar * (width - buflen)
+  return buf
 
 if __name__ == "__main__":
   print(inputchar("[A, B, C, D]", "ABCD", None))
