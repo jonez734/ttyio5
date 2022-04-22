@@ -105,8 +105,8 @@ emoji = {
   "ice":                    "\U0001f9ca",
   "moneybag":               "\U0001f4b0",
   "person":                 "\U0001f9d1",
-  "sun":                    "\U00002600", # @see https://emojipedia.org/sun/
-  "thunder-cloud-and-rain": "\U000026C8", # @see https://emojipedia.org/cloud-with-lightning-and-rain/
+  "sun":                    "\U00002600", # @see https://emojipedia.org/sun/ @blacklist
+  "thunder-cloud-and-rain": "\U000026C8", # @see https://emojipedia.org/cloud-with-lightning-and-rain/ @blacklist
   "crop":                   "\U0001F33E", # @see https://emojipedia.org/sheaf-of-rice/
   "horse":                  "\U0001F40E", # @see https://emojipedia.org/horse/
   "cactus":                 "\U0001F335", # @see https://emojipedia.org/cactus/
@@ -114,7 +114,8 @@ emoji = {
   "wood":                   "\U0001FAB5", # @see https://emojipedia.org/wood/
   "link":                   "\U0001F517", # @see https://emojipedia.org/link/
   "anchor":                 "\U00002693", # @see https://emojipedia.org/anchor/
-  "ballot-box":             "\U0001F5F3", # @see https://emojipedia.org/ballot-box-with-ballot/
+  "ballot-box":             "\U0001F5F3", # @see https://emojipedia.org/ballot-box-with-ballot/ @blacklist breaks monospace font
+  "building":               "\U0001F3DB", # @see https://emojipedia.org/classical-building/
 }
 
 terinallock = None
@@ -534,19 +535,12 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
     return ""
 
   if strip is True:
+    result = ""
     for token in __tokenizemci(buf):
       if token.type == "WORD" or token.type == "WHITESPACE":
         result += token.value
-      elif token.type == "EMOJI":
-        result += " "
-        v = emoji[token.value] if token.value in emoji else ""
-#        echo("token.value=%r v=%r" % (token.value, v))
-#        m = re.match(r'[\U00010000-\U0001FFFF]', v, re.DEBUG)
-#        echo("m=%r" % (m))
-#        if m is not None:
-#          echo("padding")
-#          result += "*"
-#    print("result=%r (%d)" % (result, len(result)))
+#      elif token.type == "EMOJI":
+#        result += "    " # emoji[token.value]
     return result
 
   if width is None:
@@ -658,18 +652,24 @@ def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, date
     stamp = strftime("%Y-%b-%d %I:%M:%S%P %Z (%a)", now.timetuple())
     buf = "%s %s" % (stamp, buf)
 
+  prefix = ""
   if level is not None:
     if level == "debug":
+#      prefix = "{bglightblue}{blue}"
       buf = "{bglightblue}{blue} %s {/all}}" % (buf)
     if level == "warn":
+#      prefix = "{bgyellow}{black}"
       buf = "{bgyellow}{black} %s {/all}" % (buf)
     elif level == "error":
+#      prefix = "{bgred}{black}"
       buf = "{bgred}{black} %s {/all}" % (buf)
     elif level == "success":
+#      prefix = "{bggreen}{black}"
       buf = "{bggreen}{black} %s {/all}" % (buf)
     buf += "{/all}"
 
   if interpret is True:
+#    buf = interpretmci(prefix+buf+"{/all}", strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
     buf = interpretmci(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
 
   print(buf, end=end)
@@ -947,25 +947,28 @@ def inputboolean(prompt:str, default:str=None, options="YN") -> bool:
           return False
   return
 
-def center(buf, width:int=None, fillchar:str=" "):
-  if width is None:
-    width = getterminalwidth()-2
-
-  l = len(interpretmci(buf, strip=True))
-  half = (width-l)//2 # ttyio.getterminalwidth()-2-l)//2
-  if (width - l) % 2 == 0:
-    space = ""
-  else:
-    space = fillchar
-  b = fillchar*half+buf+space+fillchar*half
-  return b
-
-def ljust(buf:str, width:int=None, fillchar:str=" "):
-  if width is None:
-    width = getterminalwidth()-1
-  buflen = len(interpretmci(buf, strip=True))
-  buf += fillchar * (width - buflen)
-  return buf
+#def center(buf, width:int=None, fillchar:str=" "):
+#  if width is None:
+#    width = getterminalwidth()
+#
+#  buflen = len(interpretmci(buf, strip=True, width=width))
+#  half = (width-buflen)//2 # ttyio.getterminalwidth()-2-l)//2
+##  echo("ttyio5.center.100: buflen=%d half=%d width=%d" % (buflen, half, width))
+#  if (width - buflen) % 2 == 0:
+#    space = ""
+#  else:
+#    space = fillchar
+#  return fillchar*half+buf+space+fillchar*half
+#
+#def ljust(buf:str, width:int=None, fillchar:str="*"):
+#  if width is None:
+#    width = getterminalwidth()
+#  echo("width=%d" % (width), level="debug")
+#  buflen = len(interpretmci(buf, strip=True))
+#  echo("ttyio5.ljust.100: buflen=%d len(buf)=%d" % (buflen, len(buf)), level="debug")
+#  buf += fillchar * (width - buflen)
+#  echo("%r" % (buf))
+#  return buf
 
 if __name__ == "__main__":
   print(inputchar("[A, B, C, D]", "ABCD", None))
