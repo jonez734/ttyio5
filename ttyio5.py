@@ -147,7 +147,7 @@ def getch(noneok:bool=False, timeout=0.000125, echoch=False) -> str:
         try:
           r, w, x = select.select([fd], [], [], timeout)
         except socket.error as e:
-          echo("%r: %r" % (e.code, e.msg), level="error", interpret=False)
+          echo("%r: %r" % (e.code, e.msg), level="error")
           if e.args[0] == 4:
             echo("interupted system call (tab switch?)", level="warning")
             continue
@@ -655,21 +655,20 @@ def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, date
   prefix = ""
   if level is not None:
     if level == "debug":
-#      prefix = "{bglightblue}{blue}"
-      buf = "{bglightblue}{blue} %s {/all}}" % (buf)
-    if level == "warn":
-#      prefix = "{bgyellow}{black}"
-      buf = "{bgyellow}{black} %s {/all}" % (buf)
+      prefix = "{bglightblue}{blue}"
+    if level == "warn" or level == "warning":
+      prefix = "{bgyellow}{black}"
     elif level == "error":
-#      prefix = "{bgred}{black}"
-      buf = "{bgred}{black} %s {/all}" % (buf)
-    elif level == "success":
-#      prefix = "{bggreen}{black}"
-      buf = "{bggreen}{black} %s {/all}" % (buf)
-    buf += "{/all}"
+      prefix = "{bgred}{black}"
+    elif level == "success" or level == "ok":
+      prefix = "{bggreen}{black}"
+    elif level == "info":
+      prefix = "{bgwhite}{blue}"
+
+    buf = "%s %s %s" % (interpretmci(prefix), buf, interpretmci("{/all}"))
+    interpret = False
 
   if interpret is True:
-#    buf = interpretmci(prefix+buf+"{/all}", strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
     buf = interpretmci(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
 
   print(buf, end=end)
