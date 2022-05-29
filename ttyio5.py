@@ -21,6 +21,10 @@ from dateutil.tz import *
 from typing import Any, List, NamedTuple
 from argparse import Namespace
 
+ESC = "\033"
+#CSI = ESC+"["
+CSI = "\x9b"
+
 keys = {
   "[A":   "KEY_UP",
   "[B":   "KEY_DOWN",
@@ -333,8 +337,6 @@ mcicommands = (
 { "command": "{reverse}",    "ansi": "7m" },
 { "command": "{/reverse}",   "ansi": "27m" },
 
-
-
 #{ "command": "{autowhite}",    "alias": "{bold}{white}"},
 #{ "command": "{autored}",      "alias": "{bold}{red}"},
 #{ "command": "{autocyan}",     "alias": "{bold}{cyan}"},
@@ -433,9 +435,11 @@ def __tokenizemci(buf:str, args:object=Namespace()):
         ("WAIT",       r'\{WAIT:(\d)\}'),
         ("UNICODE",    r'\{(U|UNICODE):([a-z]+)(:([0-9]{,3}))?\}'),
         ("EMOJI",      r':([a-zA-Z0-9_-]+):'),
+        ("HIDECURSOR", r'\{INVISCURSOR|HIDECURSOR\}'),
+        ("SHOWCURSOR", r'\{VISCURSOR|SHOWCURSOR\}'),
         ("COMMAND",    r'\{[^\}]+\}'),     # {red}, {brightyellow}, etc
         ("WORD",       r'[^ \t\n\{\}]+'),
-        ('MISMATCH',   r'.')            # Any other pattern
+        ("MISMATCH",   r'.')            # Any other pattern
     ]
     tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
     for mo in re.finditer(tok_regex, buf, re.IGNORECASE):
@@ -517,6 +521,10 @@ def __tokenizemci(buf:str, args:object=Namespace()):
           value = mo.group(56)
         elif kind == "EMICH":
           value = mo.group(58)
+        elif kind == "HIDECURSOR":
+          pass
+        elif kind == "SHOWCURSOR":
+          pass
         t = Token(kind, value)
         # print("yielding token %r" % (t,))
         yield t
@@ -528,7 +536,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
     for item in table:
       command = item["command"]
       if value == command:
-        return "\033[%s" % (item["ansi"])
+        return CSI+item["ansi"] # "\033[%s" % (item["ansi"])
     return False
 
   if buf is None or buf == "":
@@ -570,26 +578,26 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
             print("syntax error: %r" % (value))
             continue
       elif token.type == "DECSC":
-        result += "\033[s"
+        result += CSI+"s"
       elif token.type == "DECRC":
-        result += "\033[u"
+        result += CSI+"u"
       elif token.type == "CURPOS":
         y, x = token.value
-        result += "\033[%d;%dH" % (y, x)
+        result += CSI+"%d;%dH" % (y, x)
       elif token.type == "DECSTBM":
         top, bot = token.value
         if bot == 0:
-          result += "\033[%dr" % (top)
+          result += CSI+"%dr" % (top)
         else:
-          result += "\033[%d;%dr" % (top, bot)
+          result += CSI+"%d;%dr" % (top, bot)
       elif token.type == "RESETCOLOR":
-        result += "\033[0;39;49m"
+        result += CSI+"0;39;49m"
       elif token.type == "RESET":
-        result += "\033[0;39;49m\033[s\033[0;0r\033[u"
+        result += CSI+"0;39;49m\033[s\033[0;0r\033[u"
       elif token.type == "CHA": # Moves the cursor to column n (default 1)
-        result += "\033[%dG" % (token.value)
+        result += CSI+"%dG" % (token.value)
       elif token.type == "ERASELINE": # Erases part of the line. If n is 0 (or missing), clear from cursor to the end of the line. If n is 1, clear from cursor to beginning of the line. If n is 2, clear entire line. Cursor position does not change. 
-        result += "\033[%dK" % (token.value)
+        result += CSI+"%dK" % (token.value)
       elif token.type == "ACS": # use alternate character set
         # print("acs. value=%s" % (str(token.value)))
         command, repeat = token.value
@@ -600,17 +608,17 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
           pos += len(char*int(repeat))
       elif token.type == "CURSORUP": # {cursorup:10}
         repeat = int(token.value)
-        result += "\033[%dA" % (repeat)
+        result += CSI+"%dA" % (repeat)
       elif token.type == "CURSORDOWN":
         repeat = int(token.value)
-        result += "\033[%dB" % (repeat)
+        result += CSI+"%dB" % (repeat)
 #        print("result=%r" % (result))
       elif token.type == "CURSORRIGHT":
         repeat = int(token.value)
-        result += "\033[%dC" % (repeat)
+        result += CSI+"%dC" % (repeat)
       elif token.type == "CURSORLEFT":
         repeat = int(token.value)
-        result += "\033[%dD" % (repeat)
+        result += CSI+"%dD" % (repeat)
       elif token.type == "WAIT":
         duration = int(token.value)
 #        echo("duration=%r" % (duration))
@@ -639,6 +647,10 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
       elif token.type == "OPENBRACE" or token.type == "CLOSEBRACE":
         result += token.value
         pos += 1
+      elif token.type == "HIDECURSOR":
+        result += CSI+"?25l"
+      elif token.type == "SHOWCURSOR":
+        result += CSI+"?25h"
 #  print("result=%s" % (result))
   return result
 
@@ -687,7 +699,7 @@ def getcursorposition():
   newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
   termios.tcsetattr(fd, termios.TCSANOW, newattr)
 
-  echo("\033[6n", end="", flush=True)
+  echo(CSI+"6n", end="", flush=True)
   buf = ""
   try:
     for x in range(0,10):
@@ -906,7 +918,7 @@ def detectansi():
 
   # fcntl.fcntl(stdinfd, fcntl.F_SETFL, oldflags)
 
-  echo("\033[5n")
+  echo(CSI+"5n")
 
   buf = ""
   try:
@@ -919,9 +931,9 @@ def detectansi():
     termios.tcsetattr(stdinfd, termios.TCSAFLUSH, oldtermios)
     fcntl.fcntl(stdinfd, fcntl.F_SETFL, oldflags)
 #  echo("buf=%r" % (buf))
-  if buf == "\033[0n":
+  if buf == CSI+"0n":
     return True
-  elif buf == "\033[3n":
+  elif buf == CSI+"3n":
     return False
   else:
     return None
