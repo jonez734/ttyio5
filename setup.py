@@ -1,5 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
+# from setuptools import setup
 from distutils.core import setup
 
 import time
@@ -18,10 +19,10 @@ setup(
   py_modules=[projectname, "areyousure"],
   requires=[],
   scripts=["areyousure"],
-  license="GPLv2",
+  license="GPLv3",
   provides=[projectname],
   classifiers=[
-    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.9",
     "Environment :: Console",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
