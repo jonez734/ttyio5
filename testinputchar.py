@@ -1,9 +1,18 @@
 import asyncio
-import ttyio5
+import ttyio5 as ttyio
 
-async def main():
-    ch = ttyio5.inputchar("prompt: ", "YN", "")
+def foo():
+    ch = ttyio.inputchar("prompt: ", "YN", "")
+
+def main():
+    foo()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        main()
+    except EOFError:
+        ttyio.echo("EOF")
+    except KeyboardInterrupt:
+        ttyio.echo("INTR")
+
 
