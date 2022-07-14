@@ -120,6 +120,7 @@ emoji = {
   "anchor":                 "\U00002693", # @see https://emojipedia.org/anchor/
   "ballot-box":             "\U0001F5F3", # @see https://emojipedia.org/ballot-box-with-ballot/ @blacklist breaks monospace font
   "building":               "\U0001F3DB", # @see https://emojipedia.org/classical-building/
+  "envelope":               "\U00002709", # @see https://emojipedia.org/envelope/
 }
 
 terinallock = None
@@ -264,43 +265,44 @@ def rgb(prefix, rgb):
     (r, g, b, a) = rgb
   ansi = "%s;2;%s;%s;%s;%sm" % (prefix, r, g, b, a)
   return ansi
+
 # c64 color palette
 colors = (
 { "command": "{white}",      "ansi": rgb(38, (255, 255, 255))}, # )"38;2;255;255;255m", "rgb": (255,255,255) }, # 37m
 { "command": "{red}",        "ansi": rgb(38, (136, 0, 0))}, # "38;2;136;0;0m"},
-{ "command": "{cyan}",       "ansi": "38;2;170;255;238m"},
-{ "command": "{purple}",     "ansi": "38;2;204;68;204m"},
-{ "command": "{green}",      "ansi": "38;2;0;204;85m"},
-{ "command": "{blue}",       "ansi": "38;2;0;0;170m"},
-{ "command": "{yellow}",     "ansi": "38;2;238;238;119m"},
-{ "command": "{orange}",     "ansi": "38;2;221;136;85m"},
-{ "command": "{brown}",      "ansi": "38;2;102;68;0m"},
-{ "command": "{lightred}",   "ansi": "38;2;255;119;119m"},
-{ "command": "{darkgray}",   "ansi": "38;2;51;51;51m"},
-{ "command": "{gray}",       "ansi": rgb(38, (119,119,119))}, # "38;2;119;119;119m"},
-{ "command": "{lightgreen}", "ansi": "38;2;170;255;102m"},
-{ "command": "{lightblue}",  "ansi": "38;2;0;136;255m"},
-{ "command": "{lightgray}",  "ansi": "38;2;187;187;187m"},
+{ "command": "{cyan}",       "ansi": rgb(38, (170, 255, 238))}, # "38;2;170;255;238m"},
+{ "command": "{purple}",     "ansi": rgb(38, (204, 68, 204))}, #"38;2;204;68;204m"},
+{ "command": "{green}",      "ansi": rgb(38, (0, 204, 85))},#"38;2;0;204;85m"},
+{ "command": "{blue}",       "ansi": rgb(38, (0, 0, 170))},#"38;2;0;0;170m"},
+{ "command": "{yellow}",     "ansi": rgb(38, (238, 238, 119))},#"38;2;238;238;119m"},
+{ "command": "{orange}",     "ansi": rgb(38, (221, 136, 85))},#"38;2;221;136;85m"},
+{ "command": "{brown}",      "ansi": rgb(38, (102, 68, 0))},#"38;2;102;68;0m"},
+{ "command": "{lightred}",   "ansi": rgb(38, (255, 119, 119))},#"38;2;255;119;119m"},
+{ "command": "{darkgray}",   "ansi": rgb(38, (51, 51, 51))},#"38;2;51;51;51m"},
+{ "command": "{gray}",       "ansi": rgb(38, (119, 119,119))}, # "38;2;119;119;119m"},
+{ "command": "{lightgreen}", "ansi": rgb(38, (170, 255, 102))},#"38;2;170;255;102m"},
+{ "command": "{lightblue}",  "ansi": rgb(38, (0, 136, 255))},#"38;2;0;136;255m"},
+{ "command": "{lightgray}",  "ansi": rgb(38, (187, 187, 187))},#"38;2;187;187;187m"},
 { "command": "{black}",      "ansi": rgb(38, (0,0,0))}, # "38;2;0;0;0m"},
 { "command": "{darkgreen}",  "ansi": darken(38, (0, 204, 85), 0.20)},#  "rgb": (0,183,76) } # darken("green", 0.10)
 )
 
 bgcolors = (
-{ "command": "{bgwhite}",      "ansi": "48;2;255;255;255m", "rgb": (255,255,255) }, # 37m
-{ "command": "{bgred}",        "ansi": "48;2;136;0;0m",     "rgb": (136,0,0) }, # 31m
-{ "command": "{bgcyan}",       "ansi": "48;2;170;255;238m", "rgb": (170,255,238) }, # 36m
-{ "command": "{bgpurple}",     "ansi": "48;2;204;68;204m",  "rgb": (204, 68, 204) }, # 35m
-{ "command": "{bggreen}",      "ansi": "48;2;0;204;85m",    "rgb": (0,204,85) }, # 32m
-{ "command": "{bgblue}",       "ansi": "48;2;0;0;170m",     "rgb": (0,0,170) }, # 34m
-{ "command": "{bgyellow}",     "ansi": "48;2;238;238;119m", "rgb": (238,238,119) }, # 33m
-{ "command": "{bgorange}",     "ansi": "48;2;221;136;85m",  "rgb": (221,136,85) },
-{ "command": "{bgbrown}",      "ansi": "48;2;102;68;0m",    "rgb": (102,68,0) },
-{ "command": "{bglightred}",   "ansi": "48;2;255;119;119m", "rgb": (255, 119, 119) },
-{ "command": "{bgdarkgray}",   "ansi": "48;2;51;51;51m",    "rgb": (51, 51, 51) },
-{ "command": "{bggray}",       "ansi": "48;2;119;119;119m", "rgb": (119, 119, 119) },
-{ "command": "{bglightgreen}", "ansi": "48;2;170;255;102m", "rgb": (170, 255, 102) },
-{ "command": "{bglightblue}",  "ansi": "48;2;0;136;255m",   "rgb": (0, 136, 255) },
-{ "command": "{bglightgray}",  "ansi": "48;2;187;187;187m", "rgb": (187, 187, 187) },
+{ "command": "{bgwhite}",      "ansi": rgb(48, (255, 255, 255))},#"48;2;255;255;255m", "rgb": (255,255,255) }, # 37m
+{ "command": "{bgred}",        "ansi": rgb(48, (136, 0, 0))},#"48;2;136;0;0m",     "rgb": (136,0,0) }, # 31m
+{ "command": "{bgcyan}",       "ansi": rgb(48, (170, 255, 238))},#"48;2;170;255;238m", "rgb": (170,255,238) }, # 36m
+{ "command": "{bgpurple}",     "ansi": rgb(48, (204, 68, 204))},#"48;2;204;68;204m",  "rgb": (204, 68, 204) }, # 35m
+{ "command": "{bggreen}",      "ansi": rgb(48, (0, 204, 85))},#"48;2;0;204;85m",    "rgb": (0,204,85) }, # 32m
+{ "command": "{bgblue}",       "ansi": rgb(48, (0, 0, 170))},#"48;2;0;0;170m",     "rgb": (0,0,170) }, # 34m
+{ "command": "{bgyellow}",     "ansi": rgb(48, (238, 238, 119))},#"48;2;238;238;119m", "rgb": (238,238,119) }, # 33m
+{ "command": "{bgorange}",     "ansi": rgb(48, (221, 136, 85))},#"48;2;221;136;85m",  "rgb": (221,136,85) },
+{ "command": "{bgbrown}",      "ansi": rgb(48, (102, 68, 0))},#"48;2;102;68;0m",    "rgb": (102,68,0) },
+{ "command": "{bglightred}",   "ansi": rgb(48, (255, 119, 119))},#"48;2;255;119;119m", "rgb": (255, 119, 119) },
+{ "command": "{bgdarkgray}",   "ansi": rgb(48, (51, 51, 51))},#"48;2;51;51;51m",    "rgb": (51, 51, 51) },
+{ "command": "{bggray}",       "ansi": rgb(48, (119, 119, 119))},#"48;2;119;119;119m", "rgb": (119, 119, 119) },
+{ "command": "{bglightgreen}", "ansi": rgb(48, (170, 255, 102))},#"48;2;170;255;102m", "rgb": (170, 255, 102) },
+{ "command": "{bglightblue}",  "ansi": rgb(48, (0, 136, 255))},#"48;2;0;136;255m",   "rgb": (0, 136, 255) },
+{ "command": "{bglightgray}",  "ansi": rgb(48, (187, 187, 187))},#"48;2;187;187;187m", "rgb": (187, 187, 187) },
 { "command": "{bgblack}",      "ansi": rgb(48, (0,0,0)) }, # "48;2;0;0;0m",       "rgb": (0,0,0) }, # 30m
 { "command": "{bgdarkgreen}",  "ansi": darken(48, (0, 204, 85), 0.20) }, # "48;2;0;183;76m",  "rgb": (0,183,76) } # darken("green", 0.10)
 
@@ -432,7 +434,7 @@ def __tokenizemci(buf:str, args:object=Namespace()):
         ("CURSORRIGHT",r'\{CURSORRIGHT(:(\d{,3}))?\}'), # {cursorright:4}
         ("CURSORLEFT", r'\{CURSORLEFT(:(\d{,3}))?\}'),
         ("CURSORDOWN", r'\{CURSORDOWN(:(\d{,3}))?\}'),
-        ("WAIT",       r'\{WAIT:(\d)\}'),
+        ("WAIT",       r'\{WAIT:(\d{,4})\}'),
         ("UNICODE",    r'\{(U|UNICODE):([a-z]+)(:([0-9]{,3}))?\}'),
         ("EMOJI",      r':([a-zA-Z0-9_-]+):'),
         ("HIDECURSOR", r'\{INVISCURSOR|HIDECURSOR\}'),
@@ -495,8 +497,12 @@ def __tokenizemci(buf:str, args:object=Namespace()):
           # print("value.command=%r, value.repeat=%r" % (command, repeat))
         elif kind == "VAR":
 #          print("var! mo.groups=%r" % (repr(mo.groups())))
-          var = mo.group(35)
-          value = getvariable(var)
+          try:
+            var = mo.group(35)
+            value = getvariable(var)
+          except RecursionError:
+            echo("too much recursion")
+#            continue
 #          print("var=%r value=%r" % (var, value))
           for t in __tokenizemci(str(value)):
             # print("{var} yielding token %r" % (t,))
@@ -681,7 +687,10 @@ def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, date
     interpret = False
 
   if interpret is True:
-    buf = interpretmci(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
+    try:
+      buf = interpretmci(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
+    except RecursionError:
+      print("recursion error!")
 
   print(buf, end=end)
 
@@ -957,6 +966,12 @@ def inputboolean(prompt:str, default:str=None, options="YN") -> bool:
           echo("False")
           return False
   return
+
+def ljust(buf, width, fillchar=" "):
+  bufstripped = interpretmci(buf, strip=True)
+  result = bufstripped.ljust(width, fillchar)
+  result = result.replace(bufstripped, buf)
+  return result
 
 #def center(buf, width:int=None, fillchar:str=" "):
 #  if width is None:
