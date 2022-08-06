@@ -73,7 +73,7 @@ unicode = {
   "SVDHCROSS":   "\u256A",
   "SVSHCROSS":   "\u253C",
   "DVSHCROSS":   "\u256B",
-  "DVDHCROSS":   "\u256C",
+  "DVDHCROSS":   "\u256C", # double vertical double horizontal cross
   "DIEONE":      "\u2680",
   "DIETWO":      "\u2681",
   "DIETHREE":    "\u2682",
@@ -109,8 +109,8 @@ emoji = {
   "ice":                    "\U0001f9ca",
   "moneybag":               "\U0001f4b0",
   "person":                 "\U0001f9d1",
-  "sun":                    "\U00002600", # @see https://emojipedia.org/sun/ @blacklist
-  "thunder-cloud-and-rain": "\U000026C8", # @see https://emojipedia.org/cloud-with-lightning-and-rain/ @blacklist
+  "sun":                    "\U00002600", # @see https://emojipedia.org/sun/
+  "thunder-cloud-and-rain": "\U000026C8", # @see https://emojipedia.org/cloud-with-lightning-and-rain/
   "crop":                   "\U0001F33E", # @see https://emojipedia.org/sheaf-of-rice/
   "horse":                  "\U0001F40E", # @see https://emojipedia.org/horse/
   "cactus":                 "\U0001F335", # @see https://emojipedia.org/cactus/
@@ -121,6 +121,9 @@ emoji = {
   "ballot-box":             "\U0001F5F3", # @see https://emojipedia.org/ballot-box-with-ballot/ @blacklist breaks monospace font
   "building":               "\U0001F3DB", # @see https://emojipedia.org/classical-building/
   "envelope":               "\U00002709", # @see https://emojipedia.org/envelope/
+  "dolphin":                "\U0001F42C", # @see https://emojipedia.org/dolphin/
+  "bellhop-bell":           "\U0001F6CE", # @see https://emojipedia.org/bellhop-bell/
+  "hotel":                  "\U0001F3E8", # @see https://emojipedia.org/hotel/
 }
 
 terinallock = None
@@ -437,8 +440,11 @@ def __tokenizemci(buf:str, args:object=Namespace()):
         ("WAIT",       r'\{WAIT:(\d{,4})\}'),
         ("UNICODE",    r'\{(U|UNICODE):([a-z]+)(:([0-9]{,3}))?\}'),
         ("EMOJI",      r':([a-zA-Z0-9_-]+):'),
-        ("HIDECURSOR", r'\{INVISCURSOR|HIDECURSOR\}'),
-        ("SHOWCURSOR", r'\{VISCURSOR|SHOWCURSOR\}'),
+        ("HIDECURSOR", r'\{(INVISCURSOR|HIDECURSOR)\}'),
+        ("SHOWCURSOR", r'\{(VISCURSOR|SHOWCURSOR)\}'),
+#        ("ERASEDISPLAY", r'\{(ERASEDISPLAY|ED)(:(\d{,1}))?\}' ), # 0 (or ommitted) - clear all of display; 1 = cursor to beginning of screen; 2 = cursor to end of screen
+        ("ERASEDISPLAY", r'\{(ERASEDISPLAY|ED)(:(tobottom|totop|all))?\}' ), # 0 (or ommitted) - clear all of display; 1 = cursor to beginning of screen; 2 = cursor to end of screen
+        ("CURSORHPOS",   r'\{(CURSORHPOS)(:(\d{,3}))\}'),
         ("COMMAND",    r'\{[^\}]+\}'),     # {red}, {brightyellow}, etc
         ("WORD",       r'[^ \t\n\{\}]+'),
         ("MISMATCH",   r'.')            # Any other pattern
@@ -531,6 +537,17 @@ def __tokenizemci(buf:str, args:object=Namespace()):
           pass
         elif kind == "SHOWCURSOR":
           pass
+        elif kind == "ERASEDISPLAY":
+          value = mo.group(64)
+          if value == "tobottom":
+            value = 1
+          elif value == "totop":
+            value = 2
+          else:
+            value = 0
+        elif kind == "CURSORHPOS":
+          value = int(mo.group(68))
+
         t = Token(kind, value)
         # print("yielding token %r" % (t,))
         yield t
@@ -628,7 +645,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
       elif token.type == "WAIT":
         duration = int(token.value)
 #        echo("duration=%r" % (duration))
-        time.sleep(duration*0.250)
+#        time.sleep(duration*0.250)
       elif token.type == "UNICODE":
         (name, repeat) = token.value
         name = name.upper()
@@ -657,11 +674,19 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
         result += CSI+"?25l"
       elif token.type == "SHOWCURSOR":
         result += CSI+"?25h"
+      # @see https://en.wikipedia.org/wiki/ANSI_escape_code
+      # 0 = entire display (default)
+      # 1 = cursor to end of display
+      # 2 = cursor to top of display
+      elif token.type == "ERASEDISPLAY":
+        result += CSI+"%dJ" % (token.value)
+      elif token.type == "CURSORHPOS":
+        result += CSI+"%dG" % (token.value)
 #  print("result=%s" % (result))
   return result
 
 # copied from bbsengine.py
-def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, datestamp=False, end:str="\n", width:int=None, wordwrap=True, flush=False, args:object=Namespace(), **kw):
+def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, datestamp=False, end:str="\n", width:int=None, wordwrap=True, flush=False, args:object=Namespace(), indent=0, **kw):
   if width is None:
     width = getterminalwidth()
 
@@ -692,7 +717,7 @@ def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, date
     except RecursionError:
       print("recursion error!")
 
-  print(buf, end=end)
+  print(" "*indent+buf, end=end)
 
   if flush is True:
     sys.stdout.flush()
@@ -730,7 +755,7 @@ def getcursorposition():
 #  echo("row=%r, column=%r" % (row, column))
 #  echo(m.groups(), interpret=False)
 
-  return (row, column)
+  return (int(row), int(column))
 
 # @since 20210411
 def getterminalsize():
