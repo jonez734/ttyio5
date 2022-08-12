@@ -387,9 +387,17 @@ variables = {}
 variables["theanswer"] = 42
 variables["engine.title.color"] = "{bggray}{white}"
 variables["engine.title.hrcolor"] = "{darkgreen}"
-variables["engine.currentoptioncolor"] = "{bggray}{white}"
-variables["engine.promptcolor"] = "{white}"
+variables["optioncolor"] = "{white}{bggray}"
+variables["currentoptioncolor"] = "{bgwhite}{gray}"
+variables["areacolor"] = "{bggray}{white}"
 variables["engine.areacolor"] = "{bggray}{white}"
+variables["promptcolor"] = "{/bgcolor}{lightgray}"
+variables["inputcolor"] = "{/bgcolor}{green}"
+variables["normalcolor"] = "{/bgcolor}{gray}"
+variables["highlightcolor"] = "{green}"
+variables["labelcolor"] = "{/bgcolor}{lightgray}"
+variables["valuecolor"] = "{/bgcolor}{green}"
+variables["hrcolor"] = "{gray}"
 # add 'engine.menu.resultfailedcolor'?
 
 def setvariable(name:str, value):
@@ -411,44 +419,44 @@ class Token(NamedTuple):
     type: str
     value: str
 
+token_specification = [
+    ("ACS",        r'\{ACS:([a-z\d]+)(:([\d]{,3}))?\}'),
+    ("OPENBRACE",  r'\{\{'),
+    ("CLOSEBRACE", r'\}\}'),
+    ("RESETCOLOR", r'\{/ALL\}'),
+    ("RESET",      r'\{RESET\}'), # reset color+margins
+    ("F6",         r'\{F6(:(\d{,2}))?\}'), # force a carriage return
+    ("CURPOS",     r'\{CURPOS:(\d{,3})(,(\d{,3}))?\}'), # NOTE! this is y,x (ala ncurses) @see https://regex101.com/r/6Ww6sg/1
+    ("WHITESPACE", r'[ \t\n]+'), # iswhitespace()
+    ("CHA",	       r'\{CHA(:(\d{,3}))?\}'), # Moves the cursor to column n (default 1). 
+    ("ERASELINE",  r'\{(ERASELINE|EL)(:(\d))?\}'), # erase line
+    ("DECSC",      r'\{DECSC\}'), # save cursor position and current attributes
+    ("DECRC",      r'\{DECRC\}'), # restore cursor position and attributes
+    ("DECSTBM",    r'\{DECSTBM(:(\d{,3})(,(\d{,3}))?)?\}'),  # set top, bottom margin
+    ("BELL",       r'\{BELL(:(\d{,2}))?\}'),
+    ("VAR",	       r'\{VAR:([\w.-]+)\}'),
+    ("CURSORUP",   r'\{CURSORUP(:(\d{,3}))?\}'),
+    ("CURSORRIGHT",r'\{CURSORRIGHT(:(\d{,3}))?\}'), # {cursorright:4}
+    ("CURSORLEFT", r'\{CURSORLEFT(:(\d{,3}))?\}'),
+    ("CURSORDOWN", r'\{CURSORDOWN(:(\d{,3}))?\}'),
+    ("WAIT",       r'\{WAIT:(\d{,4})\}'),
+    ("UNICODE",    r'\{(U|UNICODE):([a-z]+)(:([0-9]{,3}))?\}'),
+    ("EMOJI",      r':([a-zA-Z0-9_-]+):'),
+    ("HIDECURSOR", r'\{(INVISCURSOR|HIDECURSOR)\}'),
+    ("SHOWCURSOR", r'\{(VISCURSOR|SHOWCURSOR)\}'),
+    ("ERASEDISPLAY", r'\{(ERASEDISPLAY|ED)(:(tobottom|totop|all))?\}' ), # 0 (or ommitted) - clear all of display; 1 = cursor to beginning of screen; 2 = cursor to end of screen
+    ("CURSORHPOS",   r'\{(CURSORHPOS)(:(\d{,3}))\}'),
+    ("COMMAND",    r'\{[^\}]+\}'),     # {red}, {brightyellow}, etc
+    ("WORD",       r'[^ \t\n\{\}]+'),
+    ("MISMATCH",   r'.')            # Any other pattern
+]
+
 # @see https://docs.python.org/3/library/re.html#writing-a-tokenizer
 def __tokenizemci(buf:str, args:object=Namespace()):
     if type(buf) is not str:
       return buf
 
     buf = buf.replace("\n", " ")
-    token_specification = [
-        ("ACS",        r'\{ACS:([a-z\d]+)(:([\d]{,3}))?\}'),
-        ("OPENBRACE",  r'\{\{'),
-        ("CLOSEBRACE", r'\}\}'),
-        ("RESETCOLOR", r'\{/ALL\}'),
-        ("RESET",      r'\{RESET\}'), # reset color+margins
-        ("F6",         r'\{F6(:(\d{,2}))?\}'), # force a carriage return
-        ("CURPOS",     r'\{CURPOS:(\d{,3})(,(\d{,3}))?\}'), # NOTE! this is y,x (ala ncurses) @see https://regex101.com/r/6Ww6sg/1
-        ("WHITESPACE", r'[ \t\n]+'), # iswhitespace()
-        ("CHA",	       r'\{CHA(:(\d{,3}))?\}'), # Moves the cursor to column n (default 1). 
-        ("ERASELINE",  r'\{(ERASELINE|EL)(:(\d))?\}'), # erase line
-        ("DECSC",      r'\{DECSC\}'), # save cursor position and current attributes
-        ("DECRC",      r'\{DECRC\}'), # restore cursor position and attributes
-        ("DECSTBM",    r'\{DECSTBM(:(\d{,3})(,(\d{,3}))?)?\}'),  # set top, bottom margin
-        ("BELL",       r'\{BELL(:(\d{,2}))?\}'),
-        ("VAR",	       r'\{VAR:([\w.-]+)\}'),
-        ("CURSORUP",   r'\{CURSORUP(:(\d{,3}))?\}'),
-        ("CURSORRIGHT",r'\{CURSORRIGHT(:(\d{,3}))?\}'), # {cursorright:4}
-        ("CURSORLEFT", r'\{CURSORLEFT(:(\d{,3}))?\}'),
-        ("CURSORDOWN", r'\{CURSORDOWN(:(\d{,3}))?\}'),
-        ("WAIT",       r'\{WAIT:(\d{,4})\}'),
-        ("UNICODE",    r'\{(U|UNICODE):([a-z]+)(:([0-9]{,3}))?\}'),
-        ("EMOJI",      r':([a-zA-Z0-9_-]+):'),
-        ("HIDECURSOR", r'\{(INVISCURSOR|HIDECURSOR)\}'),
-        ("SHOWCURSOR", r'\{(VISCURSOR|SHOWCURSOR)\}'),
-#        ("ERASEDISPLAY", r'\{(ERASEDISPLAY|ED)(:(\d{,1}))?\}' ), # 0 (or ommitted) - clear all of display; 1 = cursor to beginning of screen; 2 = cursor to end of screen
-        ("ERASEDISPLAY", r'\{(ERASEDISPLAY|ED)(:(tobottom|totop|all))?\}' ), # 0 (or ommitted) - clear all of display; 1 = cursor to beginning of screen; 2 = cursor to end of screen
-        ("CURSORHPOS",   r'\{(CURSORHPOS)(:(\d{,3}))\}'),
-        ("COMMAND",    r'\{[^\}]+\}'),     # {red}, {brightyellow}, etc
-        ("WORD",       r'[^ \t\n\{\}]+'),
-        ("MISMATCH",   r'.')            # Any other pattern
-    ]
     tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
     for mo in re.finditer(tok_regex, buf, re.IGNORECASE):
         kind = mo.lastgroup
@@ -717,7 +725,7 @@ def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, date
     except RecursionError:
       print("recursion error!")
 
-  print(" "*indent+buf, end=end)
+  print(buf, end=end)
 
   if flush is True:
     sys.stdout.flush()
