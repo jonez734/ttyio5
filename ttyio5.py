@@ -395,8 +395,8 @@ variables["promptcolor"] = "{/bgcolor}{lightgray}"
 variables["inputcolor"] = "{/bgcolor}{green}"
 variables["normalcolor"] = "{/bgcolor}{gray}"
 variables["highlightcolor"] = "{green}"
-variables["labelcolor"] = "{/bgcolor}{lightgray}"
-variables["valuecolor"] = "{/bgcolor}{green}"
+variables["valuecolor"] = "{/bgcolor}{lightgray}"
+variables["labelcolor"] = "{/bgcolor}{green}"
 variables["hrcolor"] = "{gray}"
 # add 'engine.menu.resultfailedcolor'?
 
