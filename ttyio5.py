@@ -792,15 +792,8 @@ def getcursorposition():
     termios.tcsetattr(fd, termios.TCSAFLUSH, oldtermios)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
 
-#  echo("buf=%r" % (buf))
   m = re.search(r'\033\[(?P<row>\d{,4});(?P<col>\d{,4})R', buf)
-#  echo("m=%r" % (m))
-#  for x in range(1, len(m.groups())+1):
-#    echo("x=%r, val=%r" % (x, m.group(x)))
-  row, column = m.group(1), m.group(2)
-#  echo("row=%r, column=%r" % (row, column))
-#  echo(m.groups(), interpret=False)
-
+  row, column = m.group("row"), m.group("col")
   return (int(row), int(column))
 
 # @since 20210411
