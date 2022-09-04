@@ -124,9 +124,47 @@ emoji = {
   "dolphin":                "\U0001F42C", # @see https://emojipedia.org/dolphin/
   "bellhop-bell":           "\U0001F6CE", # @see https://emojipedia.org/bellhop-bell/
   "hotel":                  "\U0001F3E8", # @see https://emojipedia.org/hotel/
+
+  "waninggibbousmoon":      "\U0001F316",
+  "waxinggibbousmoon":      "\U0001F314",
+  "waningcrescentmoon":     "\U0001F318",
+  "waxingcrescentmoon":     "\U0001F312",
+  "lastquartermoon":        "\U0001F317",
+  "firstquartermoon":       "\U0001F313",
+  "newmoon":                "\U0001F311",
+  "fullmoon":               "\U0001F315",
+
+  "sco":                    "\U0000264F", # @see https://emojipedia.org/search/?q=zodiac
+  "sag":                    "\U00002650",
+  "cap":                    "\U00002651",
+  "aqu":                    "\U00002652",
+  "pic":                    "\U00002653",
+  "ari":                    "\U00002648",
+  "tau":                    "\U00002649",
+  "gem":                    "\U0000264A",
+  "can":                    "\U0000264B",
+  "leo":                    "\U0000264C",
+  "vir":                    "\U0000264D",
+  "lib":                    "\U0000264E",
 }
 
 terinallock = None
+
+#
+# @see https://stackoverflow.com/a/1052115
+#
+def _getch(timeout=0.0):
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        (r, w, e) = select.select([sys.stdin], [], [], timeout)
+        if r == []:
+            return None
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
 
 # @see http://www.python.org/doc/faq/library.html#how-do-i-get-a-single-keypress-at-a-time
 # @see http://craftsman-hambs.blogspot.com/2009/11/getch-in-python-read-character-without.html
@@ -384,7 +422,7 @@ acs = {
 }
 
 variables = {}
-variables["theanswer"] = 42
+variables["theanswer"] = 42 # @see https://hitchhikers.fandom.com/f/p/4400000000000039797
 variables["engine.title.color"] = "{bggray}{white}"
 variables["engine.title.hrcolor"] = "{darkgreen}"
 variables["optioncolor"] = "{white}{bggray}"
@@ -755,7 +793,7 @@ def getcursorposition():
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
 
 #  echo("buf=%r" % (buf))
-  m = re.search(r'\033\[(\d{,4});(\d{,4})R', buf)
+  m = re.search(r'\033\[(?P<row>\d{,4});(?P<col>\d{,4})R', buf)
 #  echo("m=%r" % (m))
 #  for x in range(1, len(m.groups())+1):
 #    echo("x=%r, val=%r" % (x, m.group(x)))
