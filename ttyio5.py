@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021 zoidtechnologies.com. All Rights Reserved.
+# Copyright (C) 2022 zoidtechnologies.com. All Rights Reserved.
 #
 
 import re
@@ -146,6 +146,13 @@ emoji = {
   "leo":                    "\U0000264C",
   "vir":                    "\U0000264D",
   "lib":                    "\U0000264E",
+
+  "package":                "\U0001F4E6", # @since 20220907 @see https://emojipedia.org/package/
+  "compass":                "\U0001F9ED", # @since 20220907
+  "worldmap":               "\U0001F5FA", # @since 20220916
+
+  "wolf":                   "\U0001F43A", # @since 20221002
+  "person":                 "\U0001F9D1",
 }
 
 terinallock = None
@@ -153,84 +160,163 @@ terinallock = None
 #
 # @see https://stackoverflow.com/a/1052115
 #
-def _getch(timeout=0.0):
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
-        (r, w, e) = select.select([sys.stdin], [], [], timeout)
-        if r == []:
-            return None
-        ch = sys.stdin.read(1)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return ch
+#def _getch(timeout=0.0):
+#    fd = sys.stdin.fileno()
+#    old_settings = termios.tcgetattr(fd)
+#    try:
+#        tty.setraw(fd)
+#        (r, w, e) = select.select([sys.stdin], [], [], timeout)
+#        if r == []:
+#            return None
+#        ch = sys.stdin.read(1)
+#    finally:
+#        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+#    return ch
 
 # @see http://www.python.org/doc/faq/library.html#how-do-i-get-a-single-keypress-at-a-time
 # @see http://craftsman-hambs.blogspot.com/2009/11/getch-in-python-read-character-without.html
-def getch(noneok:bool=False, timeout=0.000125, echoch=False) -> str:
+# def getch(noneok:bool=False, timeout=0.000125, echoch=False) -> str:
+#   fd = sys.stdin.fileno()
+#
+#   oldterm = termios.tcgetattr(fd)
+#
+#   newattr = termios.tcgetattr(fd)
+#
+#   newattr[3] = newattr[3] & ~termios.ICANON
+#
+#   if echoch is False:
+#     newattr[3] = newattr[3] & ~termios.ECHO
+#
+#   termios.tcsetattr(fd, termios.TCSANOW, newattr)
+#
+#   oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
+#   # fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+#   try:
+# #      echo("ttyio4.getch.220: before while true")
+#       buf = ""
+#       flag = False
+#       while True:
+# #        echo("ttyio4.getch.200: flag=%r" % (flag), level="debug")
+#         try:
+#           r, w, x = select.select([fd], [], [], timeout)
+#         except socket.error as e:
+#           echo("%r: %r" % (e.code, e.msg), level="error")
+#           if e.args[0] == 4:
+#             echo("interupted system call (tab switch?)", level="warning")
+#             continue
+#
+#         if len(r) == 0 and noneok is True:
+#           break
+#
+#        echo("ttyio4.getch.120: flag=%r, buf=%r" % (flag, buf))
+#         ch = sys.stdin.read(1)
+# #        return ch
+#
+#         if ch == chr(1): # ctrl-a
+#           return "KEY_HOME"
+#         elif ch == chr(5): # ctrl-e
+#           return "KEY_END"
+#         elif ch == chr(27):
+#           flag = True
+#           buf = ""
+# #          timeout = 0.00125
+#         elif flag is True:
+#           buf += ch
+#           if buf in keys:
+#             return keys[buf]
+#           else:
+#             if len(buf) >= 4:
+#               echo("{bell}", end="", flush=True)
+#               # echo("buf=%r, len=%d" % (buf, len(buf)), level="debug")
+#               flag = False
+#               buf = ""
+#         else:
+#           return ch
+#   finally:
+#         termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
+#         fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
+#       # echo("{/all}", end="") # print ("\033[0m", end="")
+#
+# #  return ch
+
+def inittermios():
   fd = sys.stdin.fileno()
 
-  oldterm = termios.tcgetattr(fd)
+  old_settings = termios.tcgetattr(fd)
 
-  newattr = termios.tcgetattr(fd)
+  new_settings = termios.tcgetattr(fd)
+  new_settings[3] = new_settings[3] & ~termios.ICANON
+  new_settings[3] = new_settings[3] & ~termios.ECHO
+  termios.tcsetattr(fd, termios.TCSADRAIN, new_settings)
+  os.set_blocking(fd, False)
+  return old_settings
 
-  newattr[3] = newattr[3] & ~termios.ICANON  
+def getch(timeout=1, init=True, noneok=False, echoch=False):
+  if init is True:
+    old_settings = inittermios()
 
-  if echoch is False:
-    newattr[3] = newattr[3] & ~termios.ECHO
+  ch = None
+  fd = sys.stdin.fileno()
 
-  termios.tcsetattr(fd, termios.TCSANOW, newattr)
-
-  oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
-  # fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
   try:
-#      echo("ttyio4.getch.220: before while true")
-      buf = ""
-      flag = False
-      while True:
-#        echo("ttyio4.getch.200: flag=%r" % (flag), level="debug")
-        try:
-          r, w, x = select.select([fd], [], [], timeout)
-        except socket.error as e:
-          echo("%r: %r" % (e.code, e.msg), level="error")
-          if e.args[0] == 4:
-            echo("interupted system call (tab switch?)", level="warning")
-            continue
+    buf = ""
+    esc = False
+    loop = True
+    while loop:
+      (r, w, e) = select.select([sys.stdin], [], [], timeout)
+      if r == []:# and noneok is True:
+        loop = False
+        ch = None
+        buf = b""
+        break
 
-        if len(r) == 0 and noneok is True:
+      ch = os.read(sys.stdin.fileno(), 1)
+#      ttyio.echo("inputkey.60: ch=%r" % (ch), level="debug")
+      if ch == b"\x01":
+        ch = "KEY_HOME"
+        break
+      elif ch == b"\x04":
+        raise EOFError
+      elif ch == b"\x03":
+        raise KeyboardInterrupt
+      elif ch == b"\x05":
+        ch = "KEY_END"
+        break
+      elif ch == b"\x15": # ^U
+        ch = "KEY_ERASETOBOL"
+        break
+      elif ch == ESC:
+        esc = True
+        buf = b""
+        continue
+      elif ch == b"\x7f":
+        ch = "KEY_BACKSPACE"
+        break
+
+#      ttyio.echo("inputkey.80: buf=%r esc=%r" % (buf, esc), level="debug", flush=True)
+      if esc is True:
+        buf += ch
+#        ttyio.echo("inputkey.100: buf=%r" % (buf), level="debug", flush=True)
+        if buf in keys:
+          ch = keys[buf]
+          loop = False
+          esc = False
+          buf = b""
           break
-
-#        echo("ttyio4.getch.120: flag=%r, buf=%r" % (flag, buf))
-        ch = sys.stdin.read(1)
-#        return ch
-
-        if ch == chr(1): # ctrl-a
-          return "KEY_HOME"
-        elif ch == chr(5): # ctrl-e
-          return "KEY_END"
-        elif ch == chr(27):
-          flag = True
-          buf = ""
-#          timeout = 0.00125
-        elif flag is True:
-          buf += ch
-          if buf in keys:
-            return keys[buf]
-          else:
-            if len(buf) >= 4:
-              echo("{bell}", end="", flush=True)
-              # echo("buf=%r, len=%d" % (buf, len(buf)), level="debug")
-              flag = False
-              buf = ""
-        else:
-          return ch
+      else:
+        break
+  except EOFError:
+    raise
+  except KeyboardInterrupt:
+    raise
+  except Exception:
+    import traceback
+    traceback.print_exc()
   finally:
-        termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
-        fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
-      # echo("{/all}", end="") # print ("\033[0m", end="")
-
-#  return ch
+    if init is True:
+      fd = sys.stdin.fileno()
+      termios.tcsetattr(fd, termios.TCSAFLUSH, old_settings)
+    return ch
 
 # @since 20201105
 def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), noneok:bool=False, echoch=False) -> str:
@@ -239,16 +325,17 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
 
   default = default.upper() if default is not None else ""
   options = options.upper()
+  echo("options=%r" % (options), level="debug")
   echo(prompt, end="", flush=True)
 
   while 1:
-    ch = getch(noneok=noneok, echoch=echoch)
+    ch = getch(noneok=False, echoch=echoch) # .decode("UTF-8")
     if ch is not None:
       ch = ch.upper()
 
     # echo("inputchar.100: ch=%r" % (ch))
 
-    if ch == "\n":
+    if ch == b"\n":
       if noneok is True:
         # echo("inputchar.110: noneok is true, returning none.")
         return None
@@ -258,10 +345,9 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
       else:
         echo("{bell}", end="", flush=True)
         continue
-    elif ch == "\004":
+    elif ch == b"\004":
       raise EOFError
-    elif ch is not None and ch in options:
-      # echo("%r is in %r" % (ch, options))
+    elif ch is not None and ch in bytes(options, "UTF-8"):
       return ch
     elif ch is not None:
       echo("{bell}", end="", flush=True)
@@ -422,7 +508,7 @@ acs = {
 }
 
 variables = {}
-variables["theanswer"] = 42 # @see https://hitchhikers.fandom.com/f/p/4400000000000039797
+variables["42"] = "the answer" # @see https://hitchhikers.fandom.com/f/p/4400000000000039797
 variables["engine.title.color"] = "{bggray}{white}"
 variables["engine.title.hrcolor"] = "{darkgreen}"
 variables["optioncolor"] = "{white}{bggray}"
@@ -433,9 +519,11 @@ variables["promptcolor"] = "{/bgcolor}{lightgray}"
 variables["inputcolor"] = "{/bgcolor}{green}"
 variables["normalcolor"] = "{/bgcolor}{gray}"
 variables["highlightcolor"] = "{green}"
-variables["valuecolor"] = "{/bgcolor}{lightgray}"
-variables["labelcolor"] = "{/bgcolor}{green}"
-variables["hrcolor"] = "{gray}"
+variables["labelcolor"] = "{/bgcolor}{lightgray}"
+variables["valuecolor"] = "{/bgcolor}{green}"
+variables["hrcolor"] = "{/bgcolor}{gray}"
+variables["acscolor"] = "{/bgcolor}{gray}" # @since 20220916
+variables["sepcolor"] = "{lightgray}" # @since 20220924
 # add 'engine.menu.resultfailedcolor'?
 
 def setvariable(name:str, value):
@@ -491,11 +579,14 @@ token_specification = [
 
 # @see https://docs.python.org/3/library/re.html#writing-a-tokenizer
 def __tokenizemci(buf:str, args:object=Namespace()):
+    global tok_regex_c
+
     if type(buf) is not str:
       return buf
 
-    buf = buf.replace("\n", " ")
     tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
+
+    buf = buf.replace("\n", " ") # why?
     for mo in re.finditer(tok_regex, buf, re.IGNORECASE):
         kind = mo.lastgroup
 #        print("kind=%r mo.groups()=%r" % (kind, mo.groups()))
