@@ -10,6 +10,7 @@ import time
 import termios
 import fcntl
 import select
+import signal
 import socket
 import threading
 
@@ -21,26 +22,26 @@ from dateutil.tz import *
 from typing import Any, List, NamedTuple
 from argparse import Namespace
 
-ESC = "\033"
+ESC = b"\033"
 #CSI = ESC+"["
 CSI = "\x9b"
 
 keys = {
-  "[A":   "KEY_UP",
-  "[B":   "KEY_DOWN",
-  "[C":   "KEY_RIGHT",
-  "[D":   "KEY_LEFT",
-  "[H":   "KEY_HOME",
-  "[F":   "KEY_END",
-  "[5~":  "KEY_PAGEUP",
-  "[6~":  "KEY_PAGEDOWN",
-  "[2~":  "KEY_INS",
-  "[3~":  "KEY_DEL",
-  "OP":   "KEY_F1",
-  "OQ":   "KEY_F2",
-  "OR":   "KEY_F3",
-  "OS":   "KEY_F4",
-  "[15~": "KEY_F5"
+  b"[A":   "KEY_UP",
+  b"[B":   "KEY_DOWN",
+  b"[C":   "KEY_RIGHT",
+  b"[D":   "KEY_LEFT",
+  b"[H":   "KEY_HOME",
+  b"[F":   "KEY_END",
+  b"[5~":  "KEY_PAGEUP",
+  b"[6~":  "KEY_PAGEDOWN",
+  b"[2~":  "KEY_INS",
+  b"[3~":  "KEY_DEL",
+  b"OP":   "KEY_F1",
+  b"OQ":   "KEY_F2",
+  b"OR":   "KEY_F3",
+  b"OS":   "KEY_F4",
+  b"[15~": "KEY_F5"
 }
 
 unicode = {
@@ -153,6 +154,8 @@ emoji = {
 
   "wolf":                   "\U0001F43A", # @since 20221002
   "person":                 "\U0001F9D1",
+  
+  "supervillian":           "\U0001F9B9", # @since 20221016
 }
 
 terinallock = None
@@ -252,8 +255,13 @@ def inittermios():
   return old_settings
 
 def getch(timeout=1, init=True, noneok=False, echoch=False):
+  def handlesigint(_, __):
+    print("^C")
+    raise KeyboardInterrupt
+
   if init is True:
     old_settings = inittermios()
+    signal.signal(signal.SIGINT, handlesigint)
 
   ch = None
   fd = sys.stdin.fileno()
@@ -263,6 +271,7 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
     esc = False
     loop = True
     while loop:
+      
       (r, w, e) = select.select([sys.stdin], [], [], timeout)
       if r == []:# and noneok is True:
         loop = False
@@ -277,8 +286,6 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
         break
       elif ch == b"\x04":
         raise EOFError
-      elif ch == b"\x03":
-        raise KeyboardInterrupt
       elif ch == b"\x05":
         ch = "KEY_END"
         break
@@ -293,10 +300,8 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
         ch = "KEY_BACKSPACE"
         break
 
-#      ttyio.echo("inputkey.80: buf=%r esc=%r" % (buf, esc), level="debug", flush=True)
       if esc is True:
         buf += ch
-#        ttyio.echo("inputkey.100: buf=%r" % (buf), level="debug", flush=True)
         if buf in keys:
           ch = keys[buf]
           loop = False
@@ -307,8 +312,6 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
         break
   except EOFError:
     raise
-  except KeyboardInterrupt:
-    raise
   except Exception:
     import traceback
     traceback.print_exc()
@@ -316,26 +319,44 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
     if init is True:
       fd = sys.stdin.fileno()
       termios.tcsetattr(fd, termios.TCSAFLUSH, old_settings)
+    if type(ch) is bytes:
+      return ch.decode("utf-8")
     return ch
 
 # @since 20201105
-def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), noneok:bool=False, echoch=False) -> str:
+def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
 #  if "debug" in args and args.debug is True:
 #    echo("ttyio4.inputchar.100: options=%s" % (options), level="debug")
 
   default = default.upper() if default is not None else ""
+
   options = options.upper()
-  echo("options=%r" % (options), level="debug")
+  options = "".join(sorted(options))
+#  echo(f"options={options!r}", level="debug")
+
   echo(prompt, end="", flush=True)
 
-  while 1:
-    ch = getch(noneok=False, echoch=echoch) # .decode("UTF-8")
+  if "?" not in options and callable(helpcallback) is True:
+    options += "?"
+
+  loop = True
+  while loop:
+    try:
+      # getch returns bytes
+      ch = getch(noneok=False) # .decode("UTF-8")
+#      if type(ch) is str:
+#        ch = bytes(ch, "utf-8")
+    except KeyboardInterrupt:
+      raise
+    except Exception:
+      import traceback
+      traceback.print_exc()
+      break
+
     if ch is not None:
       ch = ch.upper()
 
-    # echo("inputchar.100: ch=%r" % (ch))
-
-    if ch == b"\n":
+    if ch == "\n":
       if noneok is True:
         # echo("inputchar.110: noneok is true, returning none.")
         return None
@@ -345,13 +366,22 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
       else:
         echo("{bell}", end="", flush=True)
         continue
-    elif ch == b"\004":
+    elif ch == "\004":
       raise EOFError
-    elif ch is not None and ch in bytes(options, "UTF-8"):
-      return ch
+    elif (ch == "?" or ch == "KEY_F1") and callable(helpcallback) is True:
+      echo("help")
+      helpcallback()
+      echo(prompt, end="", flush=True)
+
+    elif (ch is not None) and (ch[:4] == "KEY_" or ch in options):
+      break
     elif ch is not None:
       echo("{bell}", end="", flush=True)
       continue
+
+  if type(ch) is bytes:
+    return ch.decode("utf-8")
+  return ch
 
 def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
 #  if debug is True:
@@ -437,7 +467,7 @@ bgcolors = (
 
 # https://www.c64-wiki.com/wiki/Color
 # https://en.wikipedia.org/wiki/ANSI_escape_code
-mcicommands = (
+echocommands = (
 { "command": "{clear}",      "ansi": "2J" },
 { "command": "{home}",       "ansi": "0;0H" },
 # { "command": "{clreol}",     "ansi": "K" },
@@ -508,7 +538,7 @@ acs = {
 }
 
 variables = {}
-variables["42"] = "the answer" # @see https://hitchhikers.fandom.com/f/p/4400000000000039797
+variables["theanswer"] = 42 # @see https://hitchhikers.fandom.com/f/p/4400000000000039797
 variables["engine.title.color"] = "{bggray}{white}"
 variables["engine.title.hrcolor"] = "{darkgreen}"
 variables["optioncolor"] = "{white}{bggray}"
@@ -578,7 +608,7 @@ token_specification = [
 ]
 
 # @see https://docs.python.org/3/library/re.html#writing-a-tokenizer
-def __tokenizemci(buf:str, args:object=Namespace()):
+def __tokenizeecho(buf:str, args:object=Namespace()):
     global tok_regex_c
 
     if type(buf) is not str:
@@ -647,7 +677,7 @@ def __tokenizemci(buf:str, args:object=Namespace()):
             echo("too much recursion")
 #            continue
 #          print("var=%r value=%r" % (var, value))
-          for t in __tokenizemci(str(value)):
+          for t in __tokenizeecho(str(value)):
             # print("{var} yielding token %r" % (t,))
             yield t
           # print("__tokenizemci.100: var=%r value=%r" % (var, value))
@@ -689,7 +719,7 @@ def __tokenizemci(buf:str, args:object=Namespace()):
         # print("yielding token %r" % (t,))
         yield t
 
-def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, end:str="\n", args=Namespace()) -> str:
+def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, end:str="\n", args=Namespace()) -> str:
   result = ""
 
   def handlecommand(table, value):
@@ -704,7 +734,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
 
   if strip is True:
     result = ""
-    for token in __tokenizemci(buf):
+    for token in __tokenizeecho(buf):
       if token.type == "WORD" or token.type == "WHITESPACE":
         result += token.value
 #      elif token.type == "EMOJI":
@@ -715,7 +745,7 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
     width = getterminalwidth()
 
   pos = 0
-  for token in __tokenizemci(buf):
+  for token in __tokenizeecho(buf):
       if token.type == "F6":
           v = token.value if token.value is not None else 1
           result += "\n"*int(v)
@@ -729,14 +759,14 @@ def interpretmci(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, 
         if strip is False:
           value = token.value.lower()
           res = False
-          for t in [mcicommands, colors, bgcolors]:
+          for t in [echocommands, colors, bgcolors]:
             res = handlecommand(t, value)
             if type(res) == str:
               result += res
               break
           if res is False:
             print("syntax error: %r" % (value))
-            continue
+            raise ValueError
       elif token.type == "DECSC":
         result += CSI+"s"
       elif token.type == "DECRC":
@@ -845,12 +875,12 @@ def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, date
     elif level == "info":
       prefix = "{bgwhite}{blue}"
 
-    buf = "%s %s %s" % (interpretmci(prefix), buf, interpretmci("{/all}"))
+    buf = "%s %s %s" % (interpretecho(prefix), buf, interpretecho("{/all}"))
     interpret = False
 
   if interpret is True:
     try:
-      buf = interpretmci(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
+      buf = interpretecho(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
     except RecursionError:
       print("recursion error!")
 
@@ -1004,7 +1034,7 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
       echo("completer is none or is not callable.")
 
   while True:
-    buf = inputfunc(interpretmci(prompt))
+    buf = inputfunc(interpretecho(prompt))
 
     if oldvalue is not None:
       readline.set_pre_input_hook(None)
@@ -1123,7 +1153,7 @@ def inputboolean(prompt:str, default:str=None, options="YN") -> bool:
   return
 
 def ljust(buf, width, fillchar=" "):
-  bufstripped = interpretmci(buf, strip=True)
+  bufstripped = interpretecho(buf, strip=True)
   result = bufstripped.ljust(width, fillchar)
   result = result.replace(bufstripped, buf)
   return result
