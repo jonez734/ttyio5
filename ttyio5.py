@@ -156,6 +156,10 @@ emoji = {
   "person":                 "\U0001F9D1",
   
   "supervillian":           "\U0001F9B9", # @since 20221016
+  "joker":                  "\U0001F0CF", # @since 20221127
+
+  "warning":                "\U000026A0",
+  "stopsign":               "\U0001F6D1",
 }
 
 terinallock = None
@@ -261,7 +265,7 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
 
   if init is True:
     old_settings = inittermios()
-    signal.signal(signal.SIGINT, handlesigint)
+#    signal.signal(signal.SIGINT, handlesigint)
 
   ch = None
   fd = sys.stdin.fileno()
@@ -339,6 +343,7 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
   if "?" not in options and callable(helpcallback) is True:
     options += "?"
 
+#  signal.signal(signal.SIG_INT, signal.SIG_DFL)
   loop = True
   while loop:
     try:
@@ -346,8 +351,8 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
       ch = getch(noneok=False) # .decode("UTF-8")
 #      if type(ch) is str:
 #        ch = bytes(ch, "utf-8")
-    except KeyboardInterrupt:
-      raise
+#    except KeyboardInterrupt:
+#      raise
     except Exception:
       import traceback
       traceback.print_exc()
@@ -547,7 +552,7 @@ variables["areacolor"] = "{bggray}{white}"
 variables["engine.areacolor"] = "{bggray}{white}"
 variables["promptcolor"] = "{/bgcolor}{lightgray}"
 variables["inputcolor"] = "{/bgcolor}{green}"
-variables["normalcolor"] = "{/bgcolor}{gray}"
+variables["normalcolor"] = "{/bgcolor}{lightgray}"
 variables["highlightcolor"] = "{green}"
 variables["labelcolor"] = "{/bgcolor}{lightgray}"
 variables["valuecolor"] = "{/bgcolor}{green}"
@@ -719,9 +724,8 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
         # print("yielding token %r" % (t,))
         yield t
 
-def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, end:str="\n", args=Namespace()) -> str:
-  result = ""
-
+def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, end:str="\n", args=Namespace(), indent:str="---") -> str:
+  result = indent
   def handlecommand(table, value):
     for item in table:
       command = item["command"]
@@ -748,7 +752,7 @@ def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True,
   for token in __tokenizeecho(buf):
       if token.type == "F6":
           v = token.value if token.value is not None else 1
-          result += "\n"*int(v)
+          result += "\n"*int(v)+indent
           pos = 0
       elif token.type == "WHITESPACE":
           result += token.value
@@ -827,8 +831,8 @@ def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True,
         if wordwrap is True:
           if pos+len(token.value) >= width-1:
             result += "\n"
-            pos = len(token.value)
-            result += token.value
+            pos = len(indent)+len(token.value)
+            result += indent+token.value
           else:
             result += token.value
             pos += len(token.value)
@@ -969,18 +973,30 @@ def xtname(name):
 # @see https://stackoverflow.com/questions/9043551/regex-that-matches-integers-only
 def inputinteger(prompt, oldvalue=None, **kw) -> int:
   oldvalue = int(oldvalue) if oldvalue is not None else ""
-  mask = kw["mask"] if "mask" in kw else r"^([+-]?[1-9]\d*|0)$"
+  mask = kw["mask"] if "mask" in kw else r"^([+-]?[1-9]\d*|0)[ ,]?$"
   buf = inputstring(prompt, oldvalue, mask=mask, **kw)
 
   if buf is None or buf == "":
     return None
   
-  try:
-    res = int(buf)
-  except:
-    return None
-  else:
+  print(f"type(buf)={type(buf)!r}")
+  if type(buf) is list:
+    res = []
+    for b in buf:
+      try:
+        res.append(int(b))
+      except:
+        return
+    echo("res={}".format(res))
     return res
+  else:
+    print("inputinteger.100: plain int, not a list")
+    try:
+      res = int(buf)
+    except:
+      return
+    else:
+      return res
 
 # @since 20110323
 # @since 20190913
@@ -1033,7 +1049,8 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
     if args is not None and "debug" in args and args.debug is True:
       echo("completer is none or is not callable.")
 
-  while True:
+  loop = True
+  while loop:
     buf = inputfunc(interpretecho(prompt))
 
     if oldvalue is not None:
@@ -1061,8 +1078,10 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
     else:
       foo = str(buf)
     
-    if callable(verify) is True and verify(args, foo) is False:
-        continue
+    if callable(verify) is True and verify(foo, **kw) is False:
+      echo("verify is callable, verify() returned false", level="debug")
+      loop = True
+      continue
 
     break
 
