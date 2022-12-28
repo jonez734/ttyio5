@@ -724,7 +724,14 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
         # print("yielding token %r" % (t,))
         yield t
 
-def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True, end:str="\n", args=Namespace(), indent:str="---") -> str:
+def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args=Namespace(), indent:str="---") -> str:
+  width = kw["width"] if "width" in kw else None
+  strip = kw["strip"] if "strip" in kw else False
+  wordwrap = kw["wordwrap"] if "wordwrap" in kw else True
+  end = kw["end"] if "end" in kw else "\n"
+  args = kw["args"] if "args" in kw else Namespace()
+  indent = kw["indent"] if "indent" in kw else ""
+
   result = indent
   def handlecommand(table, value):
     for item in table:
@@ -752,7 +759,7 @@ def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True,
   for token in __tokenizeecho(buf):
       if token.type == "F6":
           v = token.value if token.value is not None else 1
-          result += "\n"*int(v)+indent
+          result += "\n"*int(v)# +indent
           pos = 0
       elif token.type == "WHITESPACE":
           result += token.value
@@ -831,8 +838,8 @@ def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True,
         if wordwrap is True:
           if pos+len(token.value) >= width-1:
             result += "\n"
-            pos = len(indent)+len(token.value)
-            result += indent+token.value
+            pos = len(token.value) # len(indent)+len(token.value)
+            result += token.value # indent+token.value
           else:
             result += token.value
             pos += len(token.value)
@@ -857,10 +864,17 @@ def interpretecho(buf:str, width:int=None, strip:bool=False, wordwrap:bool=True,
   return result
 
 # copied from bbsengine.py
-def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, datestamp=False, end:str="\n", width:int=None, wordwrap=True, flush=False, args:object=Namespace(), indent=0, **kw):
-  if width is None:
-    width = getterminalwidth()
-
+def echo(buf:str="", **kw):
+  width = kw["width"] if "width" in kw else getterminalwidth()
+  level = kw["level"] if "level" in kw else None
+  strip = kw["strip"] if "strip" in kw else False
+  wordwrap = kw["wordwrap"] if "wordwrap" in kw else True
+  flush = kw["flush"] if "flush" in kw else True
+  end = kw["end"] if "end" in kw else "\n"
+  indent = kw["indent"] if "indent" in kw else ""
+  args = kw["args"] if "args" in kw else Namespace()
+  interpret = kw["interpret"] if "interpret" in kw else True
+  datestamp = kw["datestamp"] if "datestamp" in kw else False
   if datestamp is True:
     now = datetime.now(tzlocal())
     stamp = strftime("%Y-%b-%d %I:%M:%S%P %Z (%a)", now.timetuple())
@@ -879,12 +893,13 @@ def echo(buf:str="", interpret:bool=True, strip:bool=False, level:str=None, date
     elif level == "info":
       prefix = "{bgwhite}{blue}"
 
+#    buf = f"{prefix}{buf}{{var:normalcolor}}"
     buf = "%s %s %s" % (interpretecho(prefix), buf, interpretecho("{/all}"))
     interpret = False
 
   if interpret is True:
     try:
-      buf = interpretecho(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args)
+      buf = interpretecho(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args, indent=indent)
     except RecursionError:
       print("recursion error!")
 
@@ -979,7 +994,7 @@ def inputinteger(prompt, oldvalue=None, **kw) -> int:
   if buf is None or buf == "":
     return None
   
-  print(f"type(buf)={type(buf)!r}")
+#  print(f"type(buf)={type(buf)!r}")
   if type(buf) is list:
     res = []
     for b in buf:
@@ -987,10 +1002,10 @@ def inputinteger(prompt, oldvalue=None, **kw) -> int:
         res.append(int(b))
       except:
         return
-    echo("res={}".format(res))
+#    echo(f"res={res!r}", level="debug")
     return res
   else:
-    print("inputinteger.100: plain int, not a list")
+#    echo("inputinteger.100: plain int, not a list", level="debug")
     try:
       res = int(buf)
     except:
