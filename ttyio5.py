@@ -607,6 +607,7 @@ token_specification = [
     ("SHOWCURSOR", r'\{(VISCURSOR|SHOWCURSOR)\}'),
     ("ERASEDISPLAY", r'\{(ERASEDISPLAY|ED)(:(tobottom|totop|all))?\}' ), # 0 (or ommitted) - clear all of display; 1 = cursor to beginning of screen; 2 = cursor to end of screen
     ("CURSORHPOS",   r'\{(CURSORHPOS)(:(\d{,3}))\}'),
+    ("RGB",          r'\{rgb:#?((?:[\da-fA-F]{2}){3})\}'),
     ("COMMAND",    r'\{[^\}]+\}'),     # {red}, {brightyellow}, etc
     ("WORD",       r'[^ \t\n\{\}]+'),
     ("MISMATCH",   r'.')            # Any other pattern
@@ -624,10 +625,12 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
     buf = buf.replace("\n", " ") # why?
     for mo in re.finditer(tok_regex, buf, re.IGNORECASE):
         kind = mo.lastgroup
-#        print("kind=%r mo.groups()=%r" % (kind, mo.groups()))
+##        print("kind=%r mo.groups()=%r" % (kind, mo.groups()))
+
 #        print("%r: " % (kind))
 #        for g in range(1, len(mo.groups())+1):
 #          print("%d: %s" % (g, mo.group(g)))
+
 #        if include is not [] and kind.upper() not in include:
 #          continue
         value = mo.group()
@@ -719,6 +722,12 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
             value = 0
         elif kind == "CURSORHPOS":
           value = int(mo.group(68))
+        elif kind == "RGB":
+          g = mo.group(70)
+          if g is not None:
+            value = tuple(bytes.fromhex(g))
+          else:
+            value = g
 
         t = Token(kind, value)
         # print("yielding token %r" % (t,))
@@ -776,8 +785,9 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
               result += res
               break
           if res is False:
-            print("syntax error: %r" % (value))
-            raise ValueError
+            result += value
+            #print("syntax error: %r" % (value))
+            #raise ValueError
       elif token.type == "DECSC":
         result += CSI+"s"
       elif token.type == "DECRC":
@@ -860,6 +870,10 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
         result += CSI+"%dJ" % (token.value)
       elif token.type == "CURSORHPOS":
         result += CSI+"%dG" % (token.value)
+      elif token.type == "RGB":
+        result += CSI+rgb(38, token.value) # (255, 255, 255))}, # )"38;2;255;255;255m", "rgb": (255,255,255) }, # 37m
+        result += ""
+
 #  print("result=%s" % (result))
   return result
 
@@ -1214,6 +1228,44 @@ def ljust(buf, width, fillchar=" "):
 #  buf += fillchar * (width - buflen)
 #  echo("%r" % (buf))
 #  return buf
+
+# @since 20230101
+# copied from cmd2, removed handling other than GNU readline
+def rl_escape_prompt(prompt: str) -> str:
+    """Overcome bug in GNU Readline in relation to calculation of prompt length in presence of ANSI escape codes
+
+    :param prompt: original prompt
+    :return: prompt safe to pass to GNU Readline
+    """
+    # start code to tell GNU Readline about beginning of invisible characters
+    escape_start = "\x01"
+
+    # end code to tell GNU Readline about end of invisible characters
+    escape_end = "\x02"
+
+    escaped = False
+    result = ""
+
+    for c in prompt:
+        if c == "\x1b" and not escaped:
+            result += escape_start + c
+            escaped = True
+        elif c.isalpha() and escaped:
+            result += c + escape_end
+            escaped = False
+        else:
+            result += c
+
+        return result
+
+# @since 20230101
+# copied from cmd2
+def rl_unescape_prompt(prompt: str) -> str:
+    """Remove escape characters from a Readline prompt"""
+    escape_start = "\x01"
+    escape_end = "\x02"
+    prompt = prompt.replace(escape_start, "").replace(escape_end, "")
+    return prompt
 
 if __name__ == "__main__":
   print(inputchar("[A, B, C, D]", "ABCD", None))
