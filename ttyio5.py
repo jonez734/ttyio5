@@ -259,23 +259,27 @@ def inittermios():
   return old_settings
 
 def getch(timeout=1, init=True, noneok=False, echoch=False):
-  def handlesigint(_, __):
-    print("^C")
-    raise KeyboardInterrupt
+#  def handlesigint(_, __):
+#    print("^C")
+#    raise KeyboardInterrupt
 
-  if init is True:
-    old_settings = inittermios()
+#  if init is True:
+#    old_settings = inittermios()
 #    signal.signal(signal.SIGINT, handlesigint)
 
   ch = None
-  fd = sys.stdin.fileno()
+  infd = sys.stdin
+  outfd = sys.stdout
+
+  outfd.flush() # sys.stdout.flush()
+  tty.setraw(infd.fileno()) # sys.stdin.fileno())
 
   try:
     buf = ""
     esc = False
+
     loop = True
     while loop:
-      
       (r, w, e) = select.select([sys.stdin], [], [], timeout)
       if r == []:# and noneok is True:
         loop = False
@@ -283,11 +287,14 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
         buf = b""
         break
 
-      ch = os.read(sys.stdin.fileno(), 1)
-#      ttyio.echo("inputkey.60: ch=%r" % (ch), level="debug")
+      ch = os.read(fd, 1) # sys.stdin.fileno(), 1)
+      ttyio.echo("inputkey.60: ch=%r" % (ch), level="debug")
       if ch == b"\x01":
         ch = "KEY_HOME"
         break
+      elif ch == b"\x03":
+        print("^C")
+        raise KeyboardInterrupt
       elif ch == b"\x04":
         raise EOFError
       elif ch == b"\x05":
@@ -314,21 +321,29 @@ def getch(timeout=1, init=True, noneok=False, echoch=False):
           break
       else:
         break
-  except EOFError:
-    raise
-  except Exception:
-    import traceback
-    traceback.print_exc()
+#      time.sleep(0.1)
+#  except EOFError:
+#    raise
+#  except Exception:
+#    import traceback
+#    traceback.print_exc()
   finally:
-    if init is True:
-      fd = sys.stdin.fileno()
-      termios.tcsetattr(fd, termios.TCSAFLUSH, old_settings)
+#    print("finally")
+    tty.setcbreak(infd.fileno()) # sys.stdin.fileno())
+    outfd.flush() # sys.stdout.flush()
+#    if init is True:
+#      fd = sys.stdin.fileno()
+#      termios.tcsetattr(fd, termios.TCSAFLUSH, old_settings)
     if type(ch) is bytes:
       return ch.decode("utf-8")
     return ch
 
 # @since 20201105
-def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
+def inputchar(prompt:str, options:str, **kwargs): #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
+  default = kwargs["default"] if "default" in kwargs else ""
+  args = kwargs["args"] if "args" in kwargs else Namespace()
+  noneok = kwargs["noneok"] if "noneok" in kwargs else False
+  helpcallback = kwargs["helpcallback"] if "helpcallback" in kwargs else None
 #  if "debug" in args and args.debug is True:
 #    echo("ttyio4.inputchar.100: options=%s" % (options), level="debug")
 
@@ -346,17 +361,17 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
 #  signal.signal(signal.SIG_INT, signal.SIG_DFL)
   loop = True
   while loop:
-    try:
-      # getch returns bytes
-      ch = getch(noneok=False) # .decode("UTF-8")
+#    try:
+    # getch returns bytes
+    ch = getch(noneok=False) # .decode("UTF-8")
 #      if type(ch) is str:
 #        ch = bytes(ch, "utf-8")
 #    except KeyboardInterrupt:
 #      raise
-    except Exception:
-      import traceback
-      traceback.print_exc()
-      break
+#    except Exception:
+#      import traceback
+#      traceback.print_exc()
+#      break
 
     if ch is not None:
       ch = ch.upper()
@@ -373,6 +388,8 @@ def inputchar(prompt:str, options:str, default:str="", args:object=Namespace(), 
         continue
     elif ch == "\004":
       raise EOFError
+    elif ch == "\003":
+      raise KeyboardInterrupt
     elif (ch == "?" or ch == "KEY_F1") and callable(helpcallback) is True:
       echo("help")
       helpcallback()
@@ -1080,7 +1097,9 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
 
   loop = True
   while loop:
-    buf = inputfunc(interpretecho(prompt))
+    prompt = interpretecho(prompt)
+#    prompt = rl_escape_prompt(prompt)
+    buf = inputfunc(prompt) # interpretecho(prompt))
 
     if oldvalue is not None:
       readline.set_pre_input_hook(None)
