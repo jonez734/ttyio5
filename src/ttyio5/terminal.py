@@ -112,6 +112,5 @@ def getterminalheight():
 def xtname(name):
   if sys.stdout.isatty() is False:
     return False
-  print(f"{ESC}]0;{name}\007", end="")
-  sys.stdout.flush()
+  print(f"{ESC}]0;{name}\007", end="", flush=True)
   return
