@@ -164,152 +164,142 @@ emoji = {
 
 terinallock = None
 
-def getch(timeout=1, init=True, noneok=False, echoch=False):
-#  def handlesigint(_, __):
-#    print("^C")
-#    raise KeyboardInterrupt
+def getch(*args, **kwargs):
+    noneok = kwargs["noneok"] if "noneok" in kwargs else False
 
-#  if init is True:
-#    old_settings = inittermios()
-#    signal.signal(signal.SIGINT, handlesigint)
-
-  ch = None
-  infd = sys.stdin
-  outfd = sys.stdout
-
-  outfd.flush() # sys.stdout.flush()
-  tty.setraw(infd.fileno()) # sys.stdin.fileno())
-
-  try:
-    buf = ""
     esc = False
+    buf = ""
+
+    class raw(object):
+        def __init__(self, stream):
+            self.stream = stream
+            self.fd = self.stream.fileno()
+        def __enter__(self):
+            self.original_stty = termios.tcgetattr(self.stream)
+
+            newattr = termios.tcgetattr(self.fd)
+
+            self.new_stty = termios.tcgetattr(self.stream)
+            tty.setcbreak(self.stream)
+#            self.new_stty[3] = self.new_stty[3] & ~termios.ECHO
+#            termios.tcsetattr(self.fd, termios.TCSANOW, self.new_stty)
+
+        def __exit__(self, type, value, traceback):
+            termios.tcsetattr(self.stream, termios.TCSANOW, self.original_stty)
+
+    class nonblocking(object):
+        def __init__(self, stream):
+            self.stream = stream
+            self.fd = self.stream.fileno()
+        def __enter__(self):
+            self.orig_fl = fcntl.fcntl(self.fd, fcntl.F_GETFL)
+            fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl | os.O_NONBLOCK)
+        def __exit__(self, *args):
+            fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl)
 
     loop = True
-    while loop:
-      (r, w, e) = select.select([sys.stdin], [], [], timeout)
-      if r == []:# and noneok is True:
-        loop = False
-        ch = None
-        buf = b""
-        break
+    with raw(sys.stdin):
+        with nonblocking(sys.stdin):
+            while loop:
+                try:
+                    ch = sys.stdin.read(1)
+#                    print(f"ch={ch!r} type(ch)={type(ch)!r}")
+                    if ch == ESC:
+                        esc = True
+                        buf = ""
+                        continue
 
-      ch = os.read(fd, 1) # sys.stdin.fileno(), 1)
-      ttyio.echo("inputkey.60: ch=%r" % (ch), level="debug")
-      if ch == b"\x01":
-        ch = "KEY_HOME"
-        break
-      elif ch == b"\x03":
-        print("^C")
-        raise KeyboardInterrupt
-      elif ch == b"\x04":
-        raise EOFError
-      elif ch == b"\x05":
-        ch = "KEY_END"
-        break
-      elif ch == b"\x15": # ^U
-        ch = "KEY_ERASETOBOL"
-        break
-      elif ch == ESC:
-        esc = True
-        buf = b""
-        continue
-      elif ch == b"\x7f":
-        ch = "KEY_BACKSPACE"
-        break
+                    if ch == "\x01":
+                        ch = "KEY_HOME"
+                        break
+                    elif ch == "\x04":
+                        raise EOFError
+                    elif ch == "\x05":
+                        ch = "KEY_END"
+                        break
+                    elif ch == "\x15": # ^U
+                        ch = "KEY_ERASETOBOL"
+                        break
+                    elif ch == "\x7f":
+                        ch = "KEY_BACKSPACE"
+                        break
+                    if esc is True:
+                        buf += ch # bytes(ch, "utf-8")
+                        if buf in keys:
+                          ch = keys[buf]
+                          loop = False
+                          esc = False
+                          buf = ""
+                          break
+                        elif len(buf) > 3:
+                          echo(f"buf={buf!r}", flush=True, level="debug")
+                          esc = False
+                          buf = ""
+                    else:
+                        if len(ch) > 0:
+                            break
+#                    if ch == "":
+#                        ch = None
+#                        break
 
-      if esc is True:
-        buf += ch
-        if buf in keys:
-          ch = keys[buf]
-          loop = False
-          esc = False
-          buf = b""
-          break
-      else:
-        break
-#      time.sleep(0.1)
-#  except EOFError:
-#    raise
-#  except Exception:
-#    import traceback
-#    traceback.print_exc()
-  finally:
-#    print("finally")
-    tty.setcbreak(infd.fileno()) # sys.stdin.fileno())
-    outfd.flush() # sys.stdout.flush()
-#    if init is True:
-#      fd = sys.stdin.fileno()
-#      termios.tcsetattr(fd, termios.TCSAFLUSH, old_settings)
-    if type(ch) is bytes:
-      return ch.decode("utf-8")
+#                except IOError:
+#                    # this works, runs when input is idle in python2
+#                    # print("ioerror=idle")
+#                    pass
+                finally:
+                    if ch is not None and len(ch) > 1:
+                        break
+                    if ch is None and noneok is True:
+                        break
+
+                    time.sleep(0.042)
     return ch
 
-# @since 20201105
-def inputchar(prompt:str, options:str, **kwargs): #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
-  default = kwargs["default"] if "default" in kwargs else ""
-  args = kwargs["args"] if "args" in kwargs else Namespace()
+# @since 20230105 backported from ttyio6 (bugfix)
+# @see https://ballingt.com/nonblocking-stdin-in-python-3/
+def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
+  args = kwargs["args"] if "args" in kwargs else None # Namespace()
   noneok = kwargs["noneok"] if "noneok" in kwargs else False
   helpcallback = kwargs["helpcallback"] if "helpcallback" in kwargs else None
-#  if "debug" in args and args.debug is True:
-#    echo("ttyio4.inputchar.100: options=%s" % (options), level="debug")
 
   default = default.upper() if default is not None else ""
 
   options = options.upper()
   options = "".join(sorted(options))
-#  echo(f"options={options!r}", level="debug")
 
   echo(prompt, end="", flush=True)
 
   if "?" not in options and callable(helpcallback) is True:
     options += "?"
 
-#  signal.signal(signal.SIG_INT, signal.SIG_DFL)
   loop = True
   while loop:
-#    try:
-    # getch returns bytes
-    ch = getch(noneok=False) # .decode("UTF-8")
-#      if type(ch) is str:
-#        ch = bytes(ch, "utf-8")
-#    except KeyboardInterrupt:
-#      raise
-#    except Exception:
-#      import traceback
-#      traceback.print_exc()
-#      break
-
+    ch = getch(noneok=True) # .decode("UTF-8")
     if ch is not None:
       ch = ch.upper()
 
     if ch == "\n":
       if noneok is True:
-        # echo("inputchar.110: noneok is true, returning none.")
         return None
       elif default is not None and default != "":
-        # echo("inputchar.120: returning default %r" % (default))
         return default
       else:
         echo("{bell}", end="", flush=True)
         continue
-    elif ch == "\004":
-      raise EOFError
-    elif ch == "\003":
-      raise KeyboardInterrupt
     elif (ch == "?" or ch == "KEY_F1") and callable(helpcallback) is True:
       echo("help")
       helpcallback()
       echo(prompt, end="", flush=True)
-
-    elif (ch is not None) and (ch[:4] == "KEY_" or ch in options):
-      break
     elif ch is not None:
-      echo("{bell}", end="", flush=True)
-      continue
-
-  if type(ch) is bytes:
-    return ch.decode("utf-8")
+        if ch[:4] == "KEY_" or ch in options:
+            break
+        echo("{bell}", end="", flush=True)
+        continue
+     
   return ch
+
+def helpcallback(*args, **kwargs):
+    echo("[A]ttack [I]gnore [F]lee{f6}")
 
 def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
 #  if debug is True:
@@ -955,16 +945,36 @@ def inputinteger(prompt, oldvalue=None, **kw) -> int:
 # @since 20200626
 # @since 20200729
 # @since 20200901
-def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
+def inputstring(prompt:str, oldvalue=None, **kw) -> str:
   import readline
+  args = kw["args"] if "args" in kw else {}
+  debug = args.debug if "debug" in args else False
   def preinputhook():
-    # echo("preinputhook.100: trace")
-    readline.insert_text(str(oldvalue))
+    if debug is True:
+      echo("inputstring.preinputhook.80: trace")
+
+    multiple = kw["multiple"] if "multiple" in kw else False
+    if debug is True:
+      echo(f"inputstring.preinputhook.100: oldvalue={oldvalue!r}", level="debug")
+    if type(oldvalue) is list:
+      if debug is True:
+        echo("inputstring.preinputhook.140: oldvalue is list", level="debug")
+      for i in range(len(oldvalue)):
+        oldvalue[i] = str(oldvalue[i])
+      val = ", ".join(oldvalue)
+    else:
+      if debug is True:
+        echo("inputstring.preinputhook.160: oldvalue is not list", level="debug")
+      val = oldvalue
+    if debug is True:
+      echo(f"inputstring.preinputhook.120: oldvalue={oldvalue!r}", level="debug")
+    readline.insert_text(str(val))
     readline.redisplay()
 
-  # echo("inputstring.100: oldvalue=%r" % (oldvalue))
+  echo(f"inputstring.100: oldvalue={oldvalue!r}", level="debug")
   if oldvalue is not None:
     readline.set_pre_input_hook(preinputhook)
+#    echo("inputstring.120: pre_input_hook set", level="debug")
 
   inputfunc = input
   
@@ -980,8 +990,7 @@ def inputstring(prompt:str, oldvalue:str=None, **kw) -> str:
   completer = kw["completer"] if "completer" in kw else oldcompleter
 
   oldcompleterdelims = readline.get_completer_delims()
-
-  completerdelims = kw["completerdelims"] if "completerdelims" in kw else readline.get_completer_delims()
+  completerdelims = kw["completerdelims"] if "completerdelims" in kw else oldcompleterdelims
   
   verify = kw["verify"] if "verify" in kw else None
 
