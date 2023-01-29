@@ -83,7 +83,8 @@ def inputstring(prompt:str, oldvalue=None, **kw) -> str:
     readline.insert_text(str(val))
     readline.redisplay()
 
-  echo(f"inputstring.100: oldvalue={oldvalue!r}", level="debug")
+    if debug is True:
+      echo(f"inputstring.100: oldvalue={oldvalue!r}", level="debug")
   if oldvalue is not None:
     readline.set_pre_input_hook(preinputhook)
 #    echo("inputstring.120: pre_input_hook set", level="debug")
