@@ -17,7 +17,7 @@ keys = {
   "[6~":  "KEY_PAGEDOWN",
   "[2~":  "KEY_INS",
   "[3~":  "KEY_DEL",
-  "OP":   "KEY_F1",
+  "OP":   "KEY_HELP",
   "OQ":   "KEY_F2",
   "OR":   "KEY_F3",
   "OS":   "KEY_F4",
@@ -25,7 +25,8 @@ keys = {
   "[17~": "KEY_F6",
   "[18~": "KEY_F7",
   "[19~": "KEY_F8",
-  "[21~": "KEY_F10",
+  # "[20~": "KEY_F9",
+  # "[21~": "KEY_F10",
 }
 
 # @see https://stackoverflow.com/questions/9043551/regex-that-matches-integers-only
@@ -175,7 +176,7 @@ def inputstring(prompt:str, oldvalue=None, **kw) -> str:
 def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
   args = kwargs["args"] if "args" in kwargs else None # Namespace()
   noneok = kwargs["noneok"] if "noneok" in kwargs else False
-  helpcallback = kwargs["helpcallback"] if "helpcallback" in kwargs else None
+  help = kwargs["help"] if "help" in kwargs else None
 
   default = default.upper() if default is not None else ""
 
@@ -184,7 +185,7 @@ def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", a
 
   echo(prompt, end="", flush=True)
 
-  if "?" not in options and callable(helpcallback) is True:
+  if "?" not in options and callable(help) is True:
     options += "?"
 
   loop = True
@@ -201,9 +202,12 @@ def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", a
       else:
         echo("{bell}", end="", flush=True)
         continue
-    elif (ch == "?" or ch == "KEY_F1"): #  and callable(helpcallback) is True:
+    elif (ch == "?" or ch == "KEY_F1" or ch == "KEY_HELP"): #  and callable(helpcallback) is True:
       echo("help")
-      helpcallback()
+      if callable(help):
+        help()
+      elif type(help) is str:
+        echo(help)
       echo(prompt, end="", flush=True)
     elif ch is not None:
         if ch[:4] == "KEY_" or ch in options:
@@ -281,6 +285,8 @@ def getch(*args, **kwargs):
 
     thetick = 0
     loop = True
+    initialtimeout = 0.0042
+    # timeout = initialtimeout
     with raw(sys.stdin):
         with nonblocking(sys.stdin):
             while loop:
@@ -330,13 +336,14 @@ def getch(*args, **kwargs):
                     else:
                         if len(ch) > 0:
                             break
+                    
                 finally:
                     if ch is not None and len(ch) > 1:
                         break
                     if ch is None and noneok is True:
                         break
 
-                    time.sleep(0.0042)
+                    time.sleep(initialtimeout)
     return ch
 
 
