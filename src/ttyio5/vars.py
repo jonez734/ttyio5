@@ -1,5 +1,5 @@
 variables = {}
-variables["theanswer"] = 42 # @see https://hitchhikers.fandom.com/f/p/4400000000000039797
+variables["theanswer"] = 42 # @see https://en.wikipedia.org/wiki/42
 variables["engine.title.color"] = "{bggray}{white}"
 variables["engine.title.hrcolor"] = "{darkgreen}"
 variables["optioncolor"] = "{white}{bggray}"
