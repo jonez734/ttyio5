@@ -7,21 +7,22 @@ import fcntl
 from .output import *
 
 keys = {
-  b"[A":   "KEY_UP",
-  b"[B":   "KEY_DOWN",
-  b"[C":   "KEY_RIGHT",
-  b"[D":   "KEY_LEFT",
-  b"[H":   "KEY_HOME",
-  b"[F":   "KEY_END",
-  b"[5~":  "KEY_PAGEUP",
-  b"[6~":  "KEY_PAGEDOWN",
-  b"[2~":  "KEY_INS",
-  b"[3~":  "KEY_DEL",
-  b"OP":   "KEY_F1",
-  b"OQ":   "KEY_F2",
-  b"OR":   "KEY_F3",
-  b"OS":   "KEY_F4",
-  b"[15~": "KEY_F5"
+  "[A":   "KEY_UP",
+  "[B":   "KEY_DOWN",
+  "[C":   "KEY_RIGHT",
+  "[D":   "KEY_LEFT",
+  "[H":   "KEY_HOME",
+  "[F":   "KEY_END",
+  "[5~":  "KEY_PAGEUP",
+  "[6~":  "KEY_PAGEDOWN",
+  "[2~":  "KEY_INS",
+  "[3~":  "KEY_DEL",
+  "OP":   "KEY_F1",
+  "OQ":   "KEY_F2",
+  "OR":   "KEY_F3",
+  "OS":   "KEY_F4",
+  "[15~": "KEY_F5",
+  "[21~": "KEY_F10",
 }
 
 # @see https://stackoverflow.com/questions/9043551/regex-that-matches-integers-only
@@ -197,7 +198,7 @@ def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", a
       else:
         echo("{bell}", end="", flush=True)
         continue
-    elif (ch == "?" or ch == "KEY_F1") and callable(helpcallback) is True:
+    elif (ch == "?" or ch == "KEY_F1"): #  and callable(helpcallback) is True:
       echo("help")
       helpcallback()
       echo(prompt, end="", flush=True)
@@ -265,6 +266,17 @@ def getch(*args, **kwargs):
         def __exit__(self, *args):
             fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl)
 
+    class echooff(object):
+        def __init__(self, stream):
+            self.stream = stream
+            self.fd = self.stream.fileno()
+        def __enter__(self):
+            self.orig_fl = fcntl.fcntl(self.fd, fcntl.F_GETFL)
+            fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl & termios.ECHO)
+        def __exit__(self, *args):
+            fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl)
+
+    thetick = 0
     loop = True
     with raw(sys.stdin):
         with nonblocking(sys.stdin):
@@ -275,6 +287,7 @@ def getch(*args, **kwargs):
                     if ch == ESC:
                         esc = True
                         buf = ""
+                        # print("ESC")
                         continue
 
                     if ch == "\x01":
@@ -286,23 +299,31 @@ def getch(*args, **kwargs):
                         ch = "KEY_END"
                         break
                     elif ch == "\x15": # ^U
-                        ch = "KEY_ERASETOBOL"
+                        ch = "KEY_CUTTOBOL"
                         break
-                    elif ch == "\x7f":
+                    elif ch == "\x7f" or ch == "\x08":
                         ch = "KEY_BACKSPACE"
                         break
                     if esc is True:
+                        thetick += 1
                         buf += ch # bytes(ch, "utf-8")
+                        # print(repr(buf))
                         if buf in keys:
+                          # print("found")
                           ch = keys[buf]
                           loop = False
                           esc = False
                           buf = ""
                           break
-                        elif len(buf) > 3:
-                          echo(f"buf={buf!r}", flush=True, level="debug")
+                        if thetick > 3:
+                          if len(buf) == 0:
+                            ch = "ESC"
+                            break
+                          ch = buf
                           esc = False
                           buf = ""
+                          thetick = 0
+                          break
                     else:
                         if len(ch) > 0:
                             break
@@ -312,7 +333,7 @@ def getch(*args, **kwargs):
                     if ch is None and noneok is True:
                         break
 
-                    time.sleep(0.042)
+                    time.sleep(0.0042)
     return ch
 
 
