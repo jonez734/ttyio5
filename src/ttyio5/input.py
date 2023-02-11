@@ -273,25 +273,15 @@ def getch(*args, **kwargs):
         def __exit__(self, *args):
             fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl)
 
-    class echooff(object):
-        def __init__(self, stream):
-            self.stream = stream
-            self.fd = self.stream.fileno()
-        def __enter__(self):
-            self.orig_fl = fcntl.fcntl(self.fd, fcntl.F_GETFL)
-            fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl & termios.ECHO)
-        def __exit__(self, *args):
-            fcntl.fcntl(self.fd, fcntl.F_SETFL, self.orig_fl)
-
     thetick = 0
     loop = True
     initialtimeout = 0.0042
     # timeout = initialtimeout
-    with raw(sys.stdin):
-        with nonblocking(sys.stdin):
+    with raw(file):
+        with nonblocking(file):
             while loop:
                 try:
-                    ch = sys.stdin.read(1)
+                    ch = file.read(1) # sys.stdin.read(1)
 #                    print(f"ch={ch!r} type(ch)={type(ch)!r}")
                     if ch == ESC:
                         esc = True
@@ -310,8 +300,19 @@ def getch(*args, **kwargs):
                     elif ch == "\x15": # ^U
                         ch = "KEY_CUTTOBOL"
                         break
-                    elif ch == "\x7f" or ch == "\x08":
+                    elif ch == "\x7F" or ch == "\x08":
                         ch = "KEY_BACKSPACE"
+                        break
+                    elif ch == "\t":
+                        ch = "KEY_TAB"
+                        break
+                    elif ch == "\n":
+                        ch = "KEY_ENTER"
+                        break
+                    elif ch == "\x0C":
+                        ch = "KEY_FF"
+                    elif ch != "" and ord(ch) >= 1 and ord(ch) <= 27:
+                        ch = "KEY_CTRL_"+chr(ord(ch)+ord("A")-1)
                         break
                     if esc is True:
                         thetick += 1
@@ -326,7 +327,7 @@ def getch(*args, **kwargs):
                           break
                         if thetick > 3:
                           if len(buf) == 0:
-                            ch = "ESC"
+                            ch = "KEY_ESC"
                             break
                           ch = buf
                           esc = False
