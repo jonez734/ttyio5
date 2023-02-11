@@ -25,7 +25,7 @@ token_specification = [
     ("ERASELINE",  r'\{(ERASELINE|EL)(:(\d))?\}'), # erase line
     ("DECSC",      r'\{DECSC\}'), # save cursor position and current attributes
     ("DECRC",      r'\{DECRC\}'), # restore cursor position and attributes
-    ("DECSTBM",    r'\{DECSTBM(:(\d{,3})(,(\d{,3}))?)?\}'),  # set top, bottom margin
+    ("DECSTBM",    r'\{DECSTBM(:(\d{,3})(,(\d{,3}))?)?\}'),  # Set Top, Bottom Margin
     ("BELL",       r'\{BELL(:(\d{,2}))?\}'),
     ("VAR",	       r'\{VAR:([\w.-]+)\}'),
     ("CURSORUP",   r'\{CURSORUP(:(\d{,3}))?\}'),
