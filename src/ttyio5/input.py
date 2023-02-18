@@ -27,6 +27,8 @@ keys = {
   "[19~": "KEY_F8",
   # "[20~": "KEY_F9",
   # "[21~": "KEY_F10",
+  ">":    "KEY_DECPNM", # @see https://vt100.net/docs/vt220-rm/chapter4.html#S4.6.18 numeric or application keypad mode
+  "=":    "KEY_DECPAM",
 }
 
 # @see https://stackoverflow.com/questions/9043551/regex-that-matches-integers-only
@@ -311,6 +313,7 @@ def getch(*args, **kwargs):
                         break
                     elif ch == "\x0C":
                         ch = "KEY_FF"
+                        break
                     elif ch != "" and ord(ch) >= 1 and ord(ch) <= 27:
                         ch = "KEY_CTRL_"+chr(ord(ch)+ord("A")-1)
                         break
