@@ -22,12 +22,18 @@ def setvariable(name:str, value):
   variables[name] = value
   return
 
+setvar = setvariable
+
 def getvariable(name:str):
 #  print("getvariable.100: variables=%r" % (variables))
   if name in variables:
     return variables[name]
   return "NOTFOUND:%r" % (name)
 
+getvar = getvariable
+
 def clearvariables():
   variables = {}
   return
+
+clearvars = clearvariables
