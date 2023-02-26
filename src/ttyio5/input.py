@@ -64,7 +64,7 @@ def inputinteger(prompt, oldvalue=None, **kw) -> int:
 # @since 20200626
 # @since 20200729
 # @since 20200901
-def inputstring(prompt:str, oldvalue=None, **kw) -> str:
+def gnuinputstring(prompt:str, oldvalue=None, **kw) -> str:
   import readline
   args = kw["args"] if "args" in kw else {}
   debug = args.debug if "debug" in args else False
@@ -173,9 +173,88 @@ def inputstring(prompt:str, oldvalue=None, **kw) -> str:
 
   return foo
 
+def getchinputstring(prompt, originalvalue=42, **kw):
+    mask = kw["mask"] if "mask" in kw else None
+
+    if originalvalue is None:
+        buf = ""
+    else:
+        buf = str(originalvalue)
+    pos = len(buf)
+
+    def display():
+      curleft = f"{{cursorleft:{len(buf)-pos}}}"
+      b = buf
+      echo(f"{{cursorhpos:1}}{{eraseline}}{prompt}{b}{curleft}", flush=True, end="")
+      # bbsengine.setarea(f"pos: {pos} len(buf): {len(buf)} len(prompt): {len(prompt)}")
+
+    loop = True
+    while loop:
+        if len(buf)-pos < 0:
+          pos = 0
+
+        display()
+        ch = getch()
+        if ch == "KEY_ENTER":
+            return buf
+        elif ch == "KEY_CUTTOBOL": # ^U erase from point to bol, copy to clipboard
+            buf = buf[pos:]
+            pos = 0
+            continue
+        elif ch == "KEY_BACKSPACE":
+            if pos > 0:
+#                ttyio.echo(chr(8)+" "+chr(8), flush=True, end="")
+                buf = buf[:pos-1]+buf[pos:]
+                pos -= 1
+            else:
+                echo("{bell}", end="",flush=True)
+                pos = 0
+            continue
+        elif ch == "KEY_LEFT":
+            if pos == 0:
+              echo("{bell}", end="", flush=True)
+            else:
+              echo("{cursorleft}", end="", flush=True)
+              pos -= 1
+            continue
+        elif ch == "KEY_RIGHT":
+            if pos < len(buf):
+              pos += 1
+              echo("{cursorright}", end="", flush=True)
+            else:
+              echo("{bell}", end="", flush=True)
+            continue
+        elif ch == "KEY_HOME":
+            echo("{cursorleft:%d}" % (pos), end="", flush=True)
+            pos = 0
+            continue
+        elif ch == "KEY_END":
+            if pos < len(buf):
+              z = len(buf) - pos
+              echo("{cursorright:%d}" % (z), end="", flush=True)
+              pos = len(buf)
+            continue
+        elif ch[:4] == "KEY_":
+            echo("key=%r" % (ch), level="debug")
+            continue
+
+        if mask is not None:
+          echo(mask, flush=True, end="")
+        else:
+          # ttyio5.echo(ch.decode("utf-8"), flush=True, end="")
+          echo(ch, flush=True, end="")
+
+        buf = buf[:pos] + ch + buf[pos:]
+        pos += 1
+
+def inputstring(*args, style="getch", **kw):
+  if style == "gnu":
+    return gnuinputstring(*args, **kw)
+  return getchinputstring(*args, **kw)
+
 # @since 20230105 backported from ttyio6 (bugfix)
 # @see https://ballingt.com/nonblocking-stdin-in-python-3/
-def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
+def inputchar(prompt:str, options:str, default:str="", **kwargs): #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
   args = kwargs["args"] if "args" in kwargs else None # Namespace()
   noneok = kwargs["noneok"] if "noneok" in kwargs else False
   help = kwargs["help"] if "help" in kwargs else None
@@ -187,16 +266,16 @@ def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", a
 
   echo(prompt, end="", flush=True)
 
-  if "?" not in options and callable(help) is True:
-    options += "?"
+#  if "?" not in options and (callable(help) or type(help) is str) is True:
+#    options += "?"
 
   loop = True
   while loop:
-    ch = getch(noneok=True) # .decode("UTF-8")
+    ch = getch() # .decode("UTF-8")
     if ch is not None:
       ch = ch.upper()
 
-    if ch == "\n":
+    if ch == "KEY_ENTER":
       if noneok is True:
         return None
       elif default is not None and default != "":
@@ -204,10 +283,10 @@ def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", a
       else:
         echo("{bell}", end="", flush=True)
         continue
-    elif (ch == "?" or ch == "KEY_F1" or ch == "KEY_HELP"): #  and callable(helpcallback) is True:
+    elif (ch == "?" or ch == "KEY_HELP"): #  and callable(helpcallback) is True:
       echo("help")
       if callable(help):
-        help()
+        help(**kwargs)
       elif type(help) is str:
         echo(help)
       echo(prompt, end="", flush=True)
@@ -220,8 +299,8 @@ def inputchar(prompt:str, options:str, default="", **kwargs): #default:str="", a
   return ch
 
 # @since 20210203
-def inputboolean(prompt:str, default:str=None, options="YN") -> bool:
-  ch = inputchar(prompt, options, default)
+def inputboolean(prompt:str, default:str=None, options="YN", **kw) -> bool:
+  ch = inputchar(prompt, options, default, **kw)
   if ch is not None:
     ch = ch.upper()
   if ch == "Y":
@@ -242,7 +321,7 @@ def inputboolean(prompt:str, default:str=None, options="YN") -> bool:
 terinallock = None
 
 def getch(*args, **kwargs):
-    noneok = kwargs["noneok"] if "noneok" in kwargs else False
+#    noneok = kwargs["noneok"] if "noneok" in kwargs else False
     file = kwargs["file"] if "file" in kwargs else sys.stdin
 
     esc = False
@@ -259,8 +338,6 @@ def getch(*args, **kwargs):
 
             self.new_stty = termios.tcgetattr(self.stream)
             tty.setcbreak(self.stream)
-#            self.new_stty[3] = self.new_stty[3] & ~termios.ECHO
-#            termios.tcsetattr(self.fd, termios.TCSANOW, self.new_stty)
 
         def __exit__(self, type, value, traceback):
             termios.tcsetattr(self.stream, termios.TCSANOW, self.original_stty)
@@ -314,7 +391,7 @@ def getch(*args, **kwargs):
                     elif ch == "\x0C":
                         ch = "KEY_FF"
                         break
-                    elif ch != "" and ord(ch) >= 1 and ord(ch) <= 27:
+                    elif ch != "" and ord(ch) >= 1 and ord(ch) < 27:
                         ch = "KEY_CTRL_"+chr(ord(ch)+ord("A")-1)
                         break
                     if esc is True:
@@ -344,8 +421,6 @@ def getch(*args, **kwargs):
                 finally:
                     if ch is not None and len(ch) > 1:
                         break
-                    if ch is None and noneok is True:
-                        break
 
                     time.sleep(initialtimeout)
     return ch
@@ -362,7 +437,7 @@ def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
   while 1:
     ch = getch().upper()
 
-    if ch == "\n":
+    if ch == "KEY_ENTER":
       return default
       if default is not None:
         return default
@@ -370,3 +445,6 @@ def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
         return ch
     elif ch in options:
       return ch
+
+def inputpassword(prompt, mask="*"):
+  return getchinputstring(prompt, mask=mask)
