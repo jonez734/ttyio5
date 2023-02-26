@@ -1,6 +1,6 @@
 import re
 import sys
-from typing import Any, List, NamedTuple
+from typing import NamedTuple
 from argparse import Namespace
 
 from .vars import *
@@ -54,7 +54,7 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
 
     tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
 
-    buf = buf.replace("\n", " ") # why?
+    buf = buf.replace("\n", " ") # why? wordwrap
     for mo in re.finditer(tok_regex, buf, re.IGNORECASE):
         kind = mo.lastgroup
 ##        print("kind=%r mo.groups()=%r" % (kind, mo.groups()))
@@ -122,13 +122,13 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
             yield t
           # print("__tokenizemci.100: var=%r value=%r" % (var, value))
         elif kind == "CURSORUP":
-          value = mo.group(38) or 1 # \x1b[<repeat>A
+          value = mo.group(38) or 0 # \x1b[<repeat>A
         elif kind == "CURSORRIGHT":
-          value = mo.group(41) or 1
+          value = mo.group(41) or 0
         elif kind == "CURSORLEFT":
-          value = mo.group(44) or 1
+          value = mo.group(44) or 0
         elif kind == "CURSORDOWN":
-          value = mo.group(47) or 1
+          value = mo.group(47) or 0
         elif kind == "WAIT":
           value = int(mo.group(49) or 1)
         elif kind == "UNICODE":
@@ -172,6 +172,8 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
   end = kw["end"] if "end" in kw else "\n"
   args = kw["args"] if "args" in kw else Namespace()
   indent = kw["indent"] if "indent" in kw else ""
+  
+  color = kw["color"] if "color" in kw else True
 
   result = indent
   def handlecommand(table, value):
@@ -211,8 +213,13 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
         if strip is False:
           value = token.value.lower()
           res = False
-          for t in [echocommands, colors, bgcolors]:
-            res = handlecommand(t, value)
+          commands = [echocommands]
+          if color is True:
+            commands.append(colors)
+            commands.append(bgcolors)
+#          print(f"ttyio5.interpretmci.100: commands={commands!r}")
+          for c in commands:
+            res = handlecommand(c, value)
             if type(res) == str:
               result += res
               break
@@ -260,8 +267,9 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
         repeat = int(token.value)
         result += CSI+"%dC" % (repeat)
       elif token.type == "CURSORLEFT":
-        repeat = int(token.value)
-        result += CSI+"%dD" % (repeat)
+        if int(token.value) > 0:
+          repeat = int(token.value)
+          result += CSI+"%dD" % (repeat)
       elif token.type == "WAIT":
         duration = int(token.value)
 #        echo("duration=%r" % (duration))
@@ -309,6 +317,20 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
 #  print("result=%s" % (result))
   return result
 
+_echoargs = {}
+def setechoarg(name, value):
+  global _echoargs
+
+  _echoargs[name] = value
+
+def getechoarg(name, default=None):
+  global _echoargs
+
+  if name in _echoargs:
+    return _echoargs[name]
+  else:
+    return default
+
 def echo(buf:str="", **kw):
   width = kw["width"] if "width" in kw else getterminalwidth()
   level = kw["level"] if "level" in kw else None
@@ -320,12 +342,33 @@ def echo(buf:str="", **kw):
   args = kw["args"] if "args" in kw else Namespace()
   interpret = kw["interpret"] if "interpret" in kw else True
   datestamp = kw["datestamp"] if "datestamp" in kw else False
-  file = kw["file"] if "file" in kw else sys.stdout
   if datestamp is True:
     now = datetime.now(tzlocal())
     stamp = strftime("%Y-%b-%d %I:%M:%S%P %Z (%a)", now.timetuple())
     buf = "%s %s" % (stamp, buf)
-
+  file = kw["file"] if "file" in kw else sys.stdout
+  
+  if "color" in kw:
+    color = kw["color"]
+  elif "color" in args:
+    color = args.color
+  else:
+    color = getechoarg("color")
+    if color is None:
+      color = True
+#  a = kw["color"] if "color" in kw else True
+#  b = args.color if "color" in args else True
+#  c = getechoarg("color")
+#  print(f"a={a}, b={b}, c={c}")
+#  if a is True:
+#    color = True
+#  elif b is True:
+#    color = True
+#  elif c is True:
+#    color = True
+#  else:
+#    color = False 
+#  print(f"color={color!r}")
   prefix = ""
   if level is not None:
     if level == "debug":
@@ -345,7 +388,7 @@ def echo(buf:str="", **kw):
 
   if interpret is True:
     try:
-      buf = interpretecho(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args, indent=indent)
+      buf = interpretecho(buf, strip=strip, width=width, end=end, wordwrap=wordwrap, args=args, indent=indent, color=color)
     except RecursionError:
       print("recursion error!")
 
