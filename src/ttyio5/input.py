@@ -173,20 +173,24 @@ def gnuinputstring(prompt:str, oldvalue=None, **kw) -> str:
 
   return foo
 
-def getchinputstring(prompt, originalvalue=42, **kw):
+def getchinputstring(prompt, originalvalue=None, **kw):
     mask = kw["mask"] if "mask" in kw else None
 
     if originalvalue is None:
         buf = ""
     else:
         buf = str(originalvalue)
+
     pos = len(buf)
 
     def display():
-      curleft = f"{{cursorleft:{len(buf)-pos}}}"
-      b = buf
-      echo(f"{{cursorhpos:1}}{{eraseline}}{prompt}{b}{curleft}", flush=True, end="")
-      # bbsengine.setarea(f"pos: {pos} len(buf): {len(buf)} len(prompt): {len(prompt)}")
+        curleft = f"{{cursorleft:{len(buf)-pos}}}"
+        if mask is not None:
+            b = mask*len(buf)
+        else:
+            b = buf
+        echo(f"{{cursorhpos:1}}{{eraseline}}{prompt}{b}{curleft}", flush=True, end="")
+        # bbsengine.setarea(f"pos: {pos} len(buf): {len(buf)} len(prompt): {len(prompt)}")
 
     loop = True
     while loop:
@@ -196,6 +200,7 @@ def getchinputstring(prompt, originalvalue=42, **kw):
         display()
         ch = getch()
         if ch == "KEY_ENTER":
+            echo()
             return buf
         elif ch == "KEY_CUTTOBOL": # ^U erase from point to bol, copy to clipboard
             buf = buf[pos:]
@@ -225,24 +230,24 @@ def getchinputstring(prompt, originalvalue=42, **kw):
               echo("{bell}", end="", flush=True)
             continue
         elif ch == "KEY_HOME":
-            echo("{cursorleft:%d}" % (pos), end="", flush=True)
+            echo(f"{{cursorleft:{pos}}}", end="", flush=True)
             pos = 0
             continue
         elif ch == "KEY_END":
             if pos < len(buf):
               z = len(buf) - pos
-              echo("{cursorright:%d}" % (z), end="", flush=True)
+              echo(f"{{cursorright:{len(buf)-pos}}}" % (z), end="", flush=True)
               pos = len(buf)
             continue
         elif ch[:4] == "KEY_":
             echo("key=%r" % (ch), level="debug")
             continue
 
-        if mask is not None:
-          echo(mask, flush=True, end="")
+        # echo(f"mask={mask!r}", level="debug")
+        if mask is None:
+            echo(ch, flush=True, end="")
         else:
-          # ttyio5.echo(ch.decode("utf-8"), flush=True, end="")
-          echo(ch, flush=True, end="")
+            echo(mask, flush=True, end="")
 
         buf = buf[:pos] + ch + buf[pos:]
         pos += 1
@@ -446,5 +451,5 @@ def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
     elif ch in options:
       return ch
 
-def inputpassword(prompt, mask="*"):
-  return getchinputstring(prompt, mask=mask)
+def inputpassword(prompt, mask="*", **kw):
+  return inputstring(prompt, mask=mask, **kw)
