@@ -1,7 +1,10 @@
 import re
 import sys
+
 from typing import NamedTuple
 from argparse import Namespace
+
+#from tzlocal import tzlocal
 
 from .vars import *
 from .terminal import getterminalwidth
@@ -27,7 +30,7 @@ token_specification = [
     ("DECRC",      r'\{DECRC\}'), # restore cursor position and attributes
     ("DECSTBM",    r'\{DECSTBM(:(\d{,3})(,(\d{,3}))?)?\}'),  # Set Top, Bottom Margin
     ("BELL",       r'\{BELL(:(\d{,2}))?\}'),
-    ("VAR",	       r'\{VAR:([\w.-]+)\}'),
+    ("VAR",	       r'\{VAR:([\w#\?.-]+)\}'),
     ("CURSORUP",   r'\{CURSORUP(:(\d{,3}))?\}'),
     ("CURSORRIGHT",r'\{CURSORRIGHT(:(\d{,3}))?\}'), # {cursorright:4}
     ("CURSORLEFT", r'\{CURSORLEFT(:(\d{,3}))?\}'),
@@ -342,10 +345,11 @@ def echo(buf:str="", **kw):
   args = kw["args"] if "args" in kw else Namespace()
   interpret = kw["interpret"] if "interpret" in kw else True
   datestamp = kw["datestamp"] if "datestamp" in kw else False
-  if datestamp is True:
-    now = datetime.now(tzlocal())
-    stamp = strftime("%Y-%b-%d %I:%M:%S%P %Z (%a)", now.timetuple())
-    buf = "%s %s" % (stamp, buf)
+#  if datestamp is True:
+#    from datetime import datetime
+#    now = datetime.now(tzlocal())
+#    stamp = strftime("%Y-%b-%d %I:%M:%S%P %Z (%a)", now.timetuple())
+#    buf = "%s %s" % (stamp, buf)
   file = kw["file"] if "file" in kw else sys.stdout
   
   if "color" in kw:
