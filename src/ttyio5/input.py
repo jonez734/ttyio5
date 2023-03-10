@@ -34,8 +34,8 @@ keys = {
 # @see https://stackoverflow.com/questions/9043551/regex-that-matches-integers-only
 def inputinteger(prompt, oldvalue=None, **kw) -> int:
   oldvalue = int(oldvalue) if oldvalue is not None else ""
-  mask = kw["mask"] if "mask" in kw else r"^([+-]?[1-9]\d*|0)[ ,]?$"
-  buf = inputstring(prompt, oldvalue, mask=mask, **kw)
+  filter = kw["filter"] if "filter" in kw else r"^([+-]?[1-9]\d*|0)[ ,]?$"
+  buf = inputstring(prompt, oldvalue, filter=filter, **kw)
 
   if buf is None or buf == "":
     return None
@@ -100,7 +100,7 @@ def gnuinputstring(prompt:str, oldvalue=None, **kw) -> str:
   
   args = kw["args"] if "args" in kw else Namespace()
 
-  mask = kw["mask"] if "mask" in kw else None
+  filter = kw["filter"] if "filter" in kw else None
 
   returnseq = kw["returnseq"] if "returnseq" in kw else False
 
@@ -145,11 +145,11 @@ def gnuinputstring(prompt:str, oldvalue=None, **kw) -> str:
       else:
         return oldvalue
 
-    if mask is not None:
+    if filter is not None:
       if args is not None and "debug" in args and args.debug is True:
-        echo(re.match(mask, buf), level="debug")
+        echo(re.match(filter, buf), level="debug")
 
-      if re.match(mask, buf) is None:
+      if re.match(filter, buf) is None:
         echo("invalid input", level="error")
         continue
 
@@ -175,6 +175,10 @@ def gnuinputstring(prompt:str, oldvalue=None, **kw) -> str:
 
 def getchinputstring(prompt, originalvalue=None, **kw):
     mask = kw["mask"] if "mask" in kw else None
+    maxlen = kw["maxlen"] if "maxlen" in kw else None
+    filter = kw["filter"] if "filter" in kw else None
+
+    completerclass = kw["completerclass"] if "completerclass" in kw else None
 
     if originalvalue is None:
         buf = ""
@@ -198,7 +202,9 @@ def getchinputstring(prompt, originalvalue=None, **kw):
           pos = 0
 
         display()
+
         ch = getch()
+
         if ch == "KEY_ENTER":
             echo()
             return buf
@@ -206,7 +212,7 @@ def getchinputstring(prompt, originalvalue=None, **kw):
             buf = buf[pos:]
             pos = 0
             continue
-        elif ch == "KEY_BACKSPACE":
+        elif ch == "KEY_BACKSPACE": # del from cursor towards left
             if pos > 0:
 #                ttyio.echo(chr(8)+" "+chr(8), flush=True, end="")
                 buf = buf[:pos-1]+buf[pos:]
@@ -236,11 +242,33 @@ def getchinputstring(prompt, originalvalue=None, **kw):
         elif ch == "KEY_END":
             if pos < len(buf):
               z = len(buf) - pos
-              echo(f"{{cursorright:{len(buf)-pos}}}" % (z), end="", flush=True)
+              echo(f"{{cursorright:{len(buf)-pos}}}", end="", flush=True)
               pos = len(buf)
             continue
+        elif ch == "KEY_TAB":
+            state = 0
+            if completerclass is None:
+                echo("{bell}", flush=True, end="")
+                continue
+            c = completerclass()
+            if callable(c.complete) is True:
+                res = c.complete(buf, state)
+                if len(res) == 0:
+                    echo("{bell}", end="", flush=True)
+                elif len(res) == 1:
+                    echo(f"{res[state]}", end="", flush=True)
+                    buf = res[state]
+                    pos = len(buf)
+                else:
+                    echo(f"tab: {res!r}")
+                continue
+
         elif ch[:4] == "KEY_":
             echo("key=%r" % (ch), level="debug")
+            continue
+
+        if maxlen is not None and len(buf) >= maxlen:
+            echo("{bell}", end="", flush=True)
             continue
 
         # echo(f"mask={mask!r}", level="debug")
@@ -384,7 +412,10 @@ def getch(*args, **kwargs):
                     elif ch == "\x15": # ^U
                         ch = "KEY_CUTTOBOL"
                         break
-                    elif ch == "\x7F" or ch == "\x08":
+#                    elif ch == "\x08":
+#                        ch = "KEY_BACKSPACE"
+#                        break
+                    elif ch == "\x7F": # or ch == \x08
                         ch = "KEY_BACKSPACE"
                         break
                     elif ch == "\t":
@@ -451,5 +482,3 @@ def accept(prompt:str, options:str, default:str="", debug:bool=False) -> str:
     elif ch in options:
       return ch
 
-def inputpassword(prompt, mask="*", **kw):
-  return inputstring(prompt, mask=mask, **kw)
