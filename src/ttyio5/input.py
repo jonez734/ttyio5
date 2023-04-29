@@ -177,6 +177,8 @@ def getchinputstring(prompt, originalvalue=None, **kw):
     mask = kw["mask"] if "mask" in kw else None
     maxlen = kw["maxlen"] if "maxlen" in kw else None
     filter = kw["filter"] if "filter" in kw else None
+    preinputhook = kw["preinputhook"] if "preinputhook" in kw else None
+    help = kw["help"] if "help" in kw else None
 
     completerclass = kw["completerclass"] if "completerclass" in kw else None
 
@@ -187,6 +189,19 @@ def getchinputstring(prompt, originalvalue=None, **kw):
 
     pos = len(buf)
 
+    def currentword():
+        words = buf.split(" ")
+        wordindex = 0
+        for x in range(0, len(buf)):
+            if x == pos:
+                break
+            if buf[x] == " ":
+                wordindex += 1
+        return words[wordindex]
+
+    def currentwordindex(): # buf, pos):
+        return buf.index(currentword()) # words[wordindex])
+
     def display():
         curleft = f"{{cursorleft:{len(buf)-pos}}}"
         if mask is not None:
@@ -196,6 +211,13 @@ def getchinputstring(prompt, originalvalue=None, **kw):
         echo(f"{{cursorhpos:1}}{{eraseline}}{prompt}{b}{curleft}", flush=True, end="")
         # bbsengine.setarea(f"pos: {pos} len(buf): {len(buf)} len(prompt): {len(prompt)}")
 
+    if type(preinputhook) is str:
+        echo(preinputhook)
+    elif callable(preinputhook) is True:
+        echo(preinputhook())
+
+    state = 0
+    
     loop = True
     while loop:
         if len(buf)-pos < 0:
@@ -246,23 +268,40 @@ def getchinputstring(prompt, originalvalue=None, **kw):
               pos = len(buf)
             continue
         elif ch == "KEY_TAB":
-            state = 0
+#            state = 0
             if completerclass is None:
                 echo("{bell}", flush=True, end="")
                 continue
             c = completerclass()
             if callable(c.complete) is True:
-                res = c.complete(buf, state)
+                res = c.complete(currentword(), state)
+#                echo(f"--> res={res!r}", level="debug")
                 if len(res) == 0:
                     echo("{bell}", end="", flush=True)
                 elif len(res) == 1:
-                    echo(f"{res[state]}", end="", flush=True)
-                    buf = res[state]
-                    pos = len(buf)
+                    p = abs(len(res[0])-len(currentword()))
+                    pos += p+1
+                    buf = buf.replace(currentword(), res[0]+" ", 1)
+                    echo(f"{{cursorright:{p}}}", end="", flush=True)
+#                    echo(f"{{f6:2}}len(currentword)={len(currentword())} len(res[0])={len(res[0])} right p={p}{{f6:2}}", end="", flush=True)
                 else:
+                    echo(" ".join(res))
+                    echo(f"--> len(res)={len(res)}")
                     echo(f"tab: {res!r}")
+                state += 1
                 continue
-
+        elif (ch == "KEY_HELP" or ch == "?") and help is not None:
+            if type(help) is str:
+                echo(help)
+            elif callable(help):
+                echo(help())
+        elif ch == "KEY_DEL":
+            if len(buf) == 0 or pos+2 > len(buf):
+                echo("{bell}")
+                continue
+            buf = buf[:pos+1]+buf[pos+2:]
+            echo("{cursorright:2}", end="", flush=True)
+            continue
         elif ch[:4] == "KEY_":
             echo("key=%r" % (ch), level="debug")
             continue
@@ -280,17 +319,17 @@ def getchinputstring(prompt, originalvalue=None, **kw):
         buf = buf[:pos] + ch + buf[pos:]
         pos += 1
 
-def inputstring(*args, style="getch", **kw):
+def inputstring(*args, style="ttyio", **kw):
   if style == "gnu":
     return gnuinputstring(*args, **kw)
   return getchinputstring(*args, **kw)
 
 # @since 20230105 backported from ttyio6 (bugfix)
 # @see https://ballingt.com/nonblocking-stdin-in-python-3/
-def inputchar(prompt:str, options:str, default:str="", **kwargs): #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
-  args = kwargs["args"] if "args" in kwargs else None # Namespace()
-  noneok = kwargs["noneok"] if "noneok" in kwargs else False
-  help = kwargs["help"] if "help" in kwargs else None
+def inputchar(prompt:str, options:str, default:str="", **kw) -> str: #default:str="", args:object=Namespace(), noneok:bool=False, helpcallback=None) -> str:
+  args = kw["args"] if "args" in kw else None # Namespace()
+  noneok = kw["noneok"] if "noneok" in kw else False
+  help = kw["help"] if "help" in kw else None
 
   default = default.upper() if default is not None else ""
 
