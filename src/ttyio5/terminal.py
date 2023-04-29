@@ -110,7 +110,13 @@ def getterminalheight():
 
 # @see https://tldp.org/HOWTO/Xterm-Title-3.html
 def xtname(name):
+
   if sys.stdout.isatty() is False:
     return False
+
+  style = getoption("style", "ttyio")
+  if style == "noansi":
+    return
+
   print(f"{ESC}]0;{name}\007", end="", flush=True)
   return
