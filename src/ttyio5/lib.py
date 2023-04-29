@@ -17,3 +17,13 @@ def rgb(prefix, rgb):
     (r, g, b, a) = rgb
   ansi = "%s;2;%s;%s;%s;%sm" % (prefix, r, g, b, a)
   return ansi
+
+options = {}
+def setoption(opt:str, value):
+  global options
+  options[opt] = value
+
+def getoption(opt:str, default=None):
+  global options
+
+  return options[opt] if opt in options else default
