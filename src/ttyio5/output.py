@@ -176,13 +176,16 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
   args = kw["args"] if "args" in kw else Namespace()
   indent = kw["indent"] if "indent" in kw else ""
   
-  color = kw["color"] if "color" in kw else True
+  style = getoption("style", "ttyio")
 
   result = indent
   def handlecommand(table, value):
+#    print(f"handlecommand.100: style={style!r}")
     for item in table:
       command = item["command"]
       if value == command:
+        if style == "noansi":
+          return ""
         return CSI+item["ansi"] # "\033[%s" % (item["ansi"])
     return False
 
@@ -214,13 +217,9 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
         result += "\007"*int(token.value)
       elif token.type == "COMMAND":
         if strip is False:
-          value = token.value.lower()
           res = False
-          commands = [echocommands]
-          if color is True:
-            commands.append(colors)
-            commands.append(bgcolors)
-#          print(f"ttyio5.interpretmci.100: commands={commands!r}")
+          commands = [echocommands, colors, bgcolors]
+          value = token.value.lower()
           for c in commands:
             res = handlecommand(c, value)
             if type(res) == str:
@@ -244,9 +243,11 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
         else:
           result += CSI+"%d;%dr" % (top, bot)
       elif token.type == "RESETCOLOR":
-        result += CSI+"0;39;49m"
+        if getoption("style", "ttyio") == "ttyio":
+          result += CSI+"0;39;49m"
       elif token.type == "RESET":
-        result += CSI+"0;39;49m\033[s\033[0;0r\033[u"
+        if getoption("style", "ttyio") == "ttyio":
+          result += CSI+"0;39;49m\033[s\033[0;0r\033[u"
       elif token.type == "CHA": # Moves the cursor to column n (default 1)
         result += CSI+"%dG" % (token.value)
       elif token.type == "ERASELINE": # Erases part of the line. If n is 0 (or missing), clear from cursor to the end of the line. If n is 1, clear from cursor to beginning of the line. If n is 2, clear entire line. Cursor position does not change. 
