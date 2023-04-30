@@ -296,10 +296,10 @@ def getchinputstring(prompt, originalvalue=None, **kw):
             elif callable(help):
                 echo(help())
         elif ch == "KEY_DEL":
-            if len(buf) == 0 or pos+2 > len(buf):
+            if len(buf) == 0 or pos+1 > len(buf):
                 echo("{bell}")
                 continue
-            buf = buf[:pos+1]+buf[pos+2:]
+            buf = buf[:pos]+buf[pos+1:]
             echo("{cursorright:2}", end="", flush=True)
             continue
         elif ch[:4] == "KEY_":
