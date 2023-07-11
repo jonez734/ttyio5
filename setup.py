@@ -3,7 +3,11 @@
 # from setuptools import setup
 from distutils.core import setup
 
+import sys
 import time
+
+#print("no.")
+#sys.exit(-1)
 
 r = 1
 v = time.strftime("%Y%m%d%H%M")
@@ -16,9 +20,9 @@ setup(
   url="http://repo.zoidtechnologies.com/%s/" % (projectname),
   author="zoid technologies",
   author_email="%s@projects.zoidtechnologies.com" % (projectname),
-  py_modules=[projectname, "areyousure"],
+  py_modules=[projectname,],# "areyousure"],
   requires=[],
-  scripts=["areyousure"],
+  #scripts=["areyousure"],
   license="GPLv3",
   provides=[projectname],
   classifiers=[
