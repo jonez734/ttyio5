@@ -26,7 +26,7 @@ setup(
   license="GPLv3",
   provides=[projectname],
   classifiers=[
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.11",
     "Environment :: Console",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
