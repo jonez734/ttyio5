@@ -209,7 +209,6 @@ def getchinputstring(prompt, originalvalue=None, **kw):
         else:
             b = buf
         echo(f"{{cursorhpos:1}}{{eraseline}}{prompt}{b}{curleft}", flush=True, end="")
-        # bbsengine.setarea(f"pos: {pos} len(buf): {len(buf)} len(prompt): {len(prompt)}")
 
     if type(preinputhook) is str:
         echo(preinputhook)
@@ -358,7 +357,7 @@ def inputchar(prompt:str, options:str, default:str="", **kw) -> str: #default:st
     elif (ch == "?" or ch == "KEY_HELP"): #  and callable(helpcallback) is True:
       echo("help")
       if callable(help):
-        help(**kwargs)
+        help(**kw)
       elif type(help) is str:
         echo(help)
       echo(prompt, end="", flush=True)
