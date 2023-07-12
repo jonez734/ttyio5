@@ -4,13 +4,13 @@ import ttyio5 as ttyio
 def getchinputstring(prompt, originalvalue=42, **kw):
     mask = kw["mask"] if "mask" in kw else None
 
-#    buf = str(originalvalue)
-    buf = ""
+    buf = str(originalvalue)
     pos = len(buf)
 
     def display():
       curleft = f"{{cursorleft:{len(buf)-pos}}}"
-      ttyio.echo(f"{{cursorhpos:1}}{{eraseline}}{prompt}{buf}{curleft}", flush=True, end="")
+      b = buf
+      ttyio.echo(f"{{cursorhpos:1}}{{eraseline}}{prompt}{b}{curleft}", flush=True, end="")
       bbsengine.setarea(f"pos: {pos} len(buf): {len(buf)} len(prompt): {len(prompt)}")
 
     loop = True
@@ -24,9 +24,6 @@ def getchinputstring(prompt, originalvalue=42, **kw):
             return buf
         elif ch == "KEY_CUTTOBOL": # ^U erase from point to bol, copy to clipboard
             buf = buf[pos:]
-#            for x in range(0, pos):
-#              ttyio.echo("X", flush=True, end="")
-#              ttyio.echo(chr(8)+" "+chr(8), flush=True, end="")
             pos = 0
             continue
         elif ch == "KEY_BACKSPACE":
@@ -74,12 +71,11 @@ def getchinputstring(prompt, originalvalue=42, **kw):
           ttyio.echo(ch, flush=True, end="")
 
         buf = buf[:pos] + ch + buf[pos:]
-        pos += 1
 
 bbsengine.initscreen()
 
 originalvalue = 42
-buf = getchinputstring("{var:promptcolor}prompt: {var:inputcolor}", originalvalue, multiple=True)
+buf = ttyio.inputstring("{var:promptcolor}prompt: {var:inputcolor}", originalvalue, multiple=True, style="ttyio")
 #buf = getchinputstring("prompt: ", originalvalue, multiple=True)
 ttyio.echo("{/all}")
 print(buf)
