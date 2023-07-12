@@ -125,13 +125,13 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
             yield t
           # print("__tokenizemci.100: var=%r value=%r" % (var, value))
         elif kind == "CURSORUP":
-          value = mo.group(38) or 0 # \x1b[<repeat>A
+          value = mo.group(38) or 1 # \x1b[<repeat>A
         elif kind == "CURSORRIGHT":
-          value = mo.group(41) or 0
+          value = mo.group(41) or 1
         elif kind == "CURSORLEFT":
-          value = mo.group(44) or 0
+          value = mo.group(44) or 1
         elif kind == "CURSORDOWN":
-          value = mo.group(47) or 0
+          value = mo.group(47) or 1
         elif kind == "WAIT":
           value = int(mo.group(49) or 1)
         elif kind == "UNICODE":
@@ -271,9 +271,9 @@ def interpretecho(buf:str, **kw) -> str: #wordwrap:bool=True, end:str="\n", args
         repeat = int(token.value)
         result += CSI+"%dC" % (repeat)
       elif token.type == "CURSORLEFT":
-        if int(token.value) > 0:
-          repeat = int(token.value)
-          result += CSI+"%dD" % (repeat)
+        repeat = int(token.value)
+        if repeat > 0:
+          result += f"{ESC}[{repeat}D" # ESC+"[%dD" % (repeat)
       elif token.type == "WAIT":
         duration = int(token.value)
 #        echo("duration=%r" % (duration))
