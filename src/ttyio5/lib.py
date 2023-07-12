@@ -22,6 +22,7 @@ options = {}
 def setoption(opt:str, value):
   global options
   options[opt] = value
+  return value
 
 def getoption(opt:str, default=None):
   global options
