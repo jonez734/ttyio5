@@ -24,7 +24,7 @@ def setvariable(name:str, value):
 
 setvar = setvariable
 
-def getvariable(name:str):
+def getvariable(name:str, defaultvalue=None):
 #  print("getvariable.100: variables=%r" % (variables))
   if name in variables:
     return variables[name]
