@@ -1,4 +1,8 @@
 #
+# ttyio5 has been split up into modules as part of a python package.
+#
+
+#
 # Copyright (C) 2022 zoidtechnologies.com. All Rights Reserved.
 #
 
@@ -242,10 +246,10 @@ def getch(*args, **kwargs):
 #                        ch = None
 #                        break
 
-#                except IOError:
-#                    # this works, runs when input is idle in python2
-#                    # print("ioerror=idle")
-#                    pass
+                except IOError:
+                    # this works, runs when input is idle in python2
+                    # print("ioerror=idle")
+                    pass
                 finally:
                     if ch is not None and len(ch) > 1:
                         break
@@ -607,6 +611,7 @@ def __tokenizeecho(buf:str, args:object=Namespace()):
         elif kind == "CURSORRIGHT":
           value = mo.group(41) or 1
         elif kind == "CURSORLEFT":
+          print(f"mo.group(44)={mo.group(44)!r}")
           value = mo.group(44) or 1
         elif kind == "CURSORDOWN":
           value = mo.group(47) or 1
