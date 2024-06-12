@@ -28,7 +28,7 @@ setup(
   classifiers=[
     "Programming Language :: Python :: 3.11",
     "Environment :: Console",
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 7 - Inactive",
     "Intended Audience :: Developers",
     "Operating System :: POSIX",
     "Topic :: Software Development :: Libraries :: Python Modules",
